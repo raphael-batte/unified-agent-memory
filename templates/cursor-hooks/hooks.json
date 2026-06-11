@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "./hooks/agent-memory-session-start.sh"
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "./hooks/agent-memory-boundary.sh"
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "./hooks/agent-memory-boundary.sh"
+      },
+      {
+        "command": "./hooks/agent-memory-session-end.sh"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "./hooks/agent-memory-after-edit.sh"
+      }
+    ]
+  }
+}

@@ -1,0 +1,243 @@
+"""Tests for scripts/lib/project_merge.py"""
+
+from __future__ import annotations
+
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+
+from lib import project_merge as pm  # noqa: E402
+
+
+class TestProjectMerge(unittest.TestCase):
+    def test_apply_updates_recent_not_decisions(self) -> None:
+        extract = {
+            "uuid": "abcd-1234",
+            "workspace_slug": "app",
+            "first_query": "First query text",
+            "user_messages": ["Raw user message not a decision"],
+            "user_message_count": 2,
+            "strategy": "tail",
+            "keywords_hit": ["deploy"],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text(
+                "# app\n_Last updated: 2020-01-01_\n\n"
+                "## Decisions\n\n- Curated only\n\n"
+                "## Recent\n\n- old1\n- old2\n- old3\n- old4\n",
+                encoding="utf-8",
+            )
+            result = pm.apply_extract_to_project(path, extract, today="2026-06-06")
+            text = path.read_text(encoding="utf-8")
+            self.assertEqual(result["decisions_added"], 0)
+            self.assertNotIn("Raw user message", text)
+            self.assertNotIn("First query text", text)
+            self.assertIn("Curated only", text)
+            self.assertIn("2026-06-06", text)
+            recent = pm._bullets(pm._parse_sections(text)[1].get("Recent", ""))
+            self.assertLessEqual(len(recent), 3)
+
+    def test_bootstrap_decisions_when_empty(self) -> None:
+        extract = {
+            "uuid": "x",
+            "workspace_slug": "app",
+            "first_query": "q",
+            "user_messages": [
+                "We decided to use docker for production deploy on the main server",
+                "short",
+            ],
+            "user_message_count": 2,
+            "strategy": "tail",
+            "keywords_hit": ["deploy", "docker", "prod"],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text(
+                "# app\n\n## Decisions\n\n\n## Recent\n\n",
+                encoding="utf-8",
+            )
+            result = pm.apply_extract_to_project(
+                path, extract, today="2026-06-07", bootstrap_decisions=True
+            )
+            text = path.read_text(encoding="utf-8")
+            self.assertEqual(result["decisions_added"], 1)
+            self.assertIn("[bootstrap]", text)
+            self.assertIn("docker", text)
+
+    def test_bootstrap_skips_when_decisions_exist(self) -> None:
+        extract = {
+            "uuid": "x",
+            "workspace_slug": "app",
+            "user_messages": ["decided to deploy with docker on production"],
+            "user_message_count": 1,
+            "strategy": "tail",
+            "keywords_hit": ["deploy"],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text("## Decisions\n\n- Curated\n\n## Recent\n\n", encoding="utf-8")
+            result = pm.apply_extract_to_project(
+                path, extract, bootstrap_decisions=True
+            )
+            self.assertEqual(result["decisions_added"], 0)
+            self.assertNotIn("[bootstrap]", path.read_text(encoding="utf-8"))
+
+    def test_apply_sets_next_step_from_extract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jsonl = Path(tmp) / "c.jsonl"
+            jsonl.write_text(
+                '{"role":"assistant","message":{"content":[{"type":"text",'
+                '"text":"Done.\\n\\nNext step: run device QA script"}]}}\n',
+                encoding="utf-8",
+            )
+            extract = {
+                "uuid": "x",
+                "workspace_slug": "app",
+                "user_messages": [],
+                "user_message_count": 0,
+                "strategy": "tail",
+                "source_path": str(jsonl),
+            }
+            path = Path(tmp) / "app.md"
+            path.write_text("## Next step\n\n\n## Recent\n\n", encoding="utf-8")
+            pm.apply_extract_to_project(path, extract, today="2026-06-07")
+            self.assertIn("device QA", path.read_text(encoding="utf-8"))
+
+    def test_apply_writes_no_pointer_placeholder(self) -> None:
+        extract = {
+            "uuid": "abcd-1234-uuid-full",
+            "workspace_slug": "app",
+            "first_query": "short",
+            "user_messages": ["hi"],
+            "user_message_count": 1,
+            "strategy": "tail",
+            "transcript_available": False,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text("## Next step\n\n\n## Recent\n\n", encoding="utf-8")
+            result = pm.apply_extract_to_project(path, extract, today="2026-06-07")
+            text = path.read_text(encoding="utf-8")
+            self.assertTrue(result["next_step_placeholder"])
+            self.assertEqual(result["next_step_kind"], "placeholder_empty")
+            self.assertIn("_No forward pointer._", text)
+            self.assertIn("abcd-123", text)
+
+    def test_apply_writes_stale_placeholder(self) -> None:
+        extract = {
+            "uuid": "stale-uuid-1234",
+            "workspace_slug": "app",
+            "first_query": "q",
+            "user_messages": ["ok"],
+            "user_message_count": 1,
+            "strategy": "tail",
+            "transcript_available": False,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text(
+                "## Next step\n\n- Deploy to production after SSL fix\n\n## Recent\n\n",
+                encoding="utf-8",
+            )
+            result = pm.apply_extract_to_project(path, extract, today="2026-06-07")
+            text = path.read_text(encoding="utf-8")
+            self.assertTrue(result["next_step_placeholder"])
+            self.assertEqual(result["next_step_kind"], "placeholder_stale")
+            self.assertIn("[?]", text)
+            self.assertIn("Deploy to production", text)
+
+    def test_curated_next_step_preserved_on_weak_auto(self) -> None:
+        extract = {
+            "uuid": "new-chat-uuid",
+            "workspace_slug": "app",
+            "user_messages": ["hi"],
+            "user_message_count": 1,
+            "strategy": "tail",
+            "watermark_user_count": 1,
+            "watermark_tail_hash": "abc",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text(
+                "## Next step\n\n- [curated] Run full smoke suite before release\n\n"
+                "## Recent\n\n- [old](aaaa-bbbb-cccc-dddd-eeee-ffff-0000) 2026-06-01\n",
+                encoding="utf-8",
+            )
+            result = pm.apply_extract_to_project(
+                path,
+                extract,
+                today="2026-06-08",
+                manifest_entry={
+                    "watermark_user_count": 1,
+                    "watermark_tail_hash": "abc",
+                },
+            )
+            text = path.read_text(encoding="utf-8")
+            self.assertTrue(result["pointer_preserved_curated"])
+            self.assertIn("[curated]", text)
+            self.assertIn("smoke suite", text)
+
+    def test_curated_overwritten_by_live_signal_and_watermark(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            jsonl = Path(tmp) / "c.jsonl"
+            jsonl.write_text(
+                '{"role":"user","message":{"content":[{"type":"text",'
+                '"text":"<user_query>okay then deploy security patch to staging</user_query>"}]}}\n',
+                encoding="utf-8",
+            )
+            extract = {
+                "uuid": "x",
+                "workspace_slug": "app",
+                "user_messages": [],
+                "user_message_count": 5,
+                "strategy": "tail",
+                "source_path": str(jsonl),
+                "watermark_user_count": 5,
+                "watermark_tail_hash": "newhash",
+            }
+            path = Path(tmp) / "app.md"
+            path.write_text(
+                "## Next step\n\n- [curated] Old curated step here for test\n\n## Recent\n\n",
+                encoding="utf-8",
+            )
+            result = pm.apply_extract_to_project(
+                path,
+                extract,
+                today="2026-06-08",
+                manifest_entry={
+                    "watermark_user_count": 1,
+                    "watermark_tail_hash": "oldhash",
+                },
+            )
+            text = path.read_text(encoding="utf-8")
+            self.assertFalse(result["pointer_preserved_curated"])
+            self.assertEqual(result["next_step_kind"], "extracted")
+            self.assertIn("security patch", text)
+            self.assertNotIn("[curated]", text)
+
+    def test_apply_leaves_summary_empty(self) -> None:
+        extract = {
+            "uuid": "x",
+            "workspace_slug": "newapp",
+            "first_query": "What is the deploy process for production?",
+            "user_messages": [],
+            "user_message_count": 1,
+            "strategy": "all",
+            "keywords_hit": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "newapp.md"
+            pm.apply_extract_to_project(path, extract, today="2026-06-06")
+            text = path.read_text(encoding="utf-8")
+            sections = pm._parse_sections(text)[1]
+            self.assertEqual(sections.get("Summary", "").strip(), "")
+            self.assertNotIn("deploy process", text)
+
+
+if __name__ == "__main__":
+    unittest.main()

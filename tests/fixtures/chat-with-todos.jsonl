@@ -1,0 +1,4 @@
+{"role":"user","message":{"content":[{"type":"text","text":"<user_query>\nStart the release checklist\n</user_query>"}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"TodoWrite","input":{"merge":false,"todos":[{"id":"1","content":"Commit + open draft PR","status":"in_progress"},{"id":"2","content":"Run device QA","status":"pending"}]}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"TodoWrite","input":{"merge":true,"todos":[{"id":"1","status":"completed"},{"id":"2","status":"in_progress","content":null}]}}]}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Summary.\n\nNext step: run device QA script after PR merge"}]}}

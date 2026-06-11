@@ -1,0 +1,54 @@
+{
+  "next_step_markers": ["next step", "next steps"],
+  "list_intro_words": ["next"],
+  "recommend_stems": [],
+  "recommend_actions": [],
+  "continue_phrases": ["if you want to continue", "to continue", "start with"],
+  "commitment_prefixes": [
+    "ok then",
+    "okay then",
+    "let's do",
+    "lets do",
+    "let's start",
+    "go with"
+  ],
+  "new_task_cues": [
+    "new task",
+    "different topic",
+    "switching to",
+    "let's move on",
+    "lets move on"
+  ],
+  "correction_cues": [
+    "don't",
+    "do not",
+    "instead",
+    "wrong",
+    "fix",
+    "broken",
+    "regression",
+    "revert",
+    "not working"
+  ],
+  "search_synonyms": [
+    ["prod", "production", "staging"],
+    ["deploy", "deployment"],
+    ["commit", "push", "merge"],
+    ["ssl", "https", "tls", "certificate"],
+    ["docker", "container", "compose"],
+    ["test", "tests", "smoke", "ci"]
+  ],
+  "action_verbs": [
+    "run",
+    "deploy",
+    "commit",
+    "cd",
+    "flutter",
+    "npm",
+    "python",
+    "python3",
+    "bash",
+    "device qa",
+    "./scripts/"
+  ]
+}

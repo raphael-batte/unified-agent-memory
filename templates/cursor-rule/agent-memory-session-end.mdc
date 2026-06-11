@@ -1,0 +1,42 @@
+---
+description: After sessionEnd — read agent-memory checklist from hook log
+alwaysApply: false
+---
+
+Pair with **session-start** rule: `bash scripts/init-project-rules.sh --project <workspace>`
+
+# Session end — memory checklist
+
+When the user ends a session, mentions distill, or you see `[agent-memory] Session end` in context:
+
+## 1. Read hook log (if exists)
+
+```text
+~/.cursor/hooks/agent-memory-session.log
+```
+
+Last lines contain the sessionEnd checklist (also in stderr during hook run).
+
+## 2. Execute checklist
+
+| Step | Action |
+|------|--------|
+| Forward pointer | Hooks write regex **## Next step** — if `[?]` / `_No forward pointer._` / low-confidence hook msg → `pointer-curate-prompt.md` |
+| Distill | Review `merge-staging/`; curate **## Decisions** from staging |
+| Fallback | If distill lacks detail → open chat link `[title](uuid)` in ## Recent |
+| Verify | `verify-memory.py --memory-home $MEMORY_HOME` |
+| Pending | `list-chats.py --pending` — note unprocessed chats |
+
+## 3. Semantic merge (not optional for new distill)
+
+- `--apply` updates **Recent** + **Next step** — never replaces agent curation of `## Decisions`
+- Use skill **semantic-merge** + `templates/chats/semantic-merge-prompt.md`
+- Pointer only: `templates/chats/pointer-curate-prompt.md`
+
+## Paths
+
+- Plugin: `$PLUGIN_ROOT` (bundle with skills + hooks)
+- Hub: `$MEMORY_HOME` (anchor `~/.cursor/agent-memory/config.json` or hub `config.json`)
+- Edit log: `~/.cursor/hooks/agent-memory-edit.log`
+
+Plugin install: `bash scripts/install-local.sh` → Reload Cursor

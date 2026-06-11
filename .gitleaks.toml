@@ -1,0 +1,8 @@
+title = "cursor-agent-memory gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "test fixtures with synthetic secrets"
+paths = ['''tests/fixtures/.*\.jsonl''', '''tests/test_.*\.py''']

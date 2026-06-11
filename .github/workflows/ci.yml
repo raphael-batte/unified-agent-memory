@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+env:
+  GITLEAKS_VERSION: "8.21.2"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate plugin structure
+        run: node scripts/validate-plugin.mjs
+
+      - name: Run test suite
+        run: bash tests/run-tests.sh
+
+  version-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Require VERSION or CHANGELOG on behaviour changes
+        run: python3 scripts/check-version-bump.py "origin/${{ github.base_ref }}"
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install gitleaks
+        run: |
+          ver="${GITLEAKS_VERSION}"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${ver}/gitleaks_${ver}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Smoke gitleaks adapter
+        run: |
+          python3 -c "
+          from pathlib import Path
+          import sys
+          sys.path.insert(0, 'scripts')
+          from lib import gitleaks_scan as gl
+          findings, err = gl.scan_path_with_gitleaks(Path('.'))
+          assert err is None, err
+          print('gitleaks scan ok, findings:', len(findings))
+          "

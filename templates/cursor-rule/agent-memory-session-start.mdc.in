@@ -1,0 +1,15 @@
+---
+description: Continue project — read distill Next step first (agent-memory)
+alwaysApply: true
+---
+
+# Session start — agent memory
+
+When continuing work in this workspace:
+
+1. Read `{{MEMORY_HOME}}/chats/projects/{{WORKSPACE_SLUG}}.md` — **## Next step** first.
+2. If the bullet is actionable, follow it.
+3. If `_No forward pointer._` or `[?]` — drill the `[title](uuid)` link in that line (transcript tail only, not full jsonl).
+4. For architecture, proposing plans, or cross-project rules — invoke `@agent-memory` or read INSTRUCTIONS Flow E.
+
+Framework: `{{FRAMEWORK_ROOT}}`

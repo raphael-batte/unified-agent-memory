@@ -1,0 +1,31 @@
+---
+description: SemVer bump required before commits to cursor-agent-memory framework
+alwaysApply: true
+---
+
+# Versioning (this repo)
+
+Framework uses **SemVer** — [VERSION](../VERSION), [CHANGELOG.md](../CHANGELOG.md), rules: [VERSIONING.md](../VERSIONING.md).
+
+## Before `git commit`
+
+**Behaviour change** (scripts, skills, `INSTRUCTIONS.md`, hooks…):
+
+1. `bash scripts/bump-version.sh {patch|minor|major} "one-line description"`
+2. Stage `VERSION`, `CHANGELOG.md`, and touched files
+3. Commit: `type: summary (vX.Y.Z)`
+
+**Doc-only** (`README.md`, `docs/**`, `templates/**`) — no bump; commit as usual.
+
+| Change type | Bump |
+|-------------|------|
+| Script/skill/protocol fix | `patch` |
+| New skill / verify check | `minor` |
+| Breaking protocol or schema | `major` + Migration in CHANGELOG |
+
+Pre-commit enforces bump only for behaviour-changing paths. Emergency: `git commit --no-verify`.
+
+## Do not version
+
+- `$MEMORY_HOME` user data — never commit here
+- Per-project `chats/projects/<slug>.md` — distill content, not framework SemVer

@@ -1,0 +1,13 @@
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Python bytecode caches (compiled .pyc embed test fixture values)
+__pycache__/
+*.py[cod]
+
+# Never commit user memory data into framework repo
+memory/
+.agent-memory/
+.memory/

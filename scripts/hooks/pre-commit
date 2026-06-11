@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Require VERSION or CHANGELOG update when behaviour-changing files change.
+# Doc-only paths (README, docs/, templates/) are exempt.
+# Install: bash scripts/install-git-hooks.sh
+
+set -euo pipefail
+
+if [[ "${SKIP_VERSION_CHECK:-}" == "1" ]]; then
+  exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$ROOT"
+
+STAGED="$(git diff --cached --name-only)"
+[[ -n "$STAGED" ]] || exit 0
+
+is_doc_only() {
+  case "$1" in
+    README.md|README.*) return 0 ;;
+    docs/*) return 0 ;;
+    templates/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_meta_only() {
+  case "$1" in
+    LICENSE|.gitignore|.cursor/rules/versioning.mdc) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+BEHAVIOUR_CHANGE=false
+VERSION_TOUCHED=false
+
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+  case "$file" in
+    VERSION|CHANGELOG.md) VERSION_TOUCHED=true ;;
+  esac
+  if is_meta_only "$file" || is_doc_only "$file"; then
+    continue
+  fi
+  BEHAVIOUR_CHANGE=true
+done <<< "$STAGED"
+
+# Doc-only / meta-only commit — no bump required
+if [[ "$BEHAVIOUR_CHANGE" != true ]]; then
+  exit 0
+fi
+
+if [[ "$VERSION_TOUCHED" == true ]]; then
+  if echo "$STAGED" | grep -qx 'VERSION'; then
+    OLD="$(git show HEAD:VERSION 2>/dev/null | tr -d '[:space:]' || true)"
+    NEW="$(tr -d '[:space:]' < VERSION)"
+    if [[ -n "$OLD" && "$OLD" == "$NEW" ]]; then
+      echo "❌ VERSION staged but unchanged ($NEW). Run:"
+      echo "   bash scripts/bump-version.sh patch \"description\""
+      exit 1
+    fi
+  fi
+  exit 0
+fi
+
+echo "❌ Behaviour-changing files without VERSION/CHANGELOG update."
+echo ""
+echo "   Run:"
+echo "   bash scripts/bump-version.sh patch \"what changed\""
+echo "   git add VERSION CHANGELOG.md"
+echo ""
+echo "   Doc-only (README, docs/, templates/) needs no bump."
+echo "   Emergency: git commit --no-verify  or  SKIP_VERSION_CHECK=1 git commit …"
+exit 1

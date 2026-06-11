@@ -1,0 +1,6 @@
+{
+  "_comment": "Hub config at $MEMORY_HOME/config.json (outside plugin bundle).",
+  "plugin_root": "",
+  "framework_root": "",
+  "memory_home": ""
+}
