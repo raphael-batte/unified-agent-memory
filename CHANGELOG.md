@@ -6,6 +6,12 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.22.1] - 2026-06-12
+
+### Fixed
+
+- **`apply_extract_to_project`** — enforce extracted-decisions cap on read even when no new candidates are appended (was only writing trimmed list when `decisions_merged > 0`)
+
 ## [0.22.0] - 2026-06-08
 
 ### Added

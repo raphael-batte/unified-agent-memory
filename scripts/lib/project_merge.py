@@ -389,7 +389,7 @@ def apply_extract_to_project(
         memory_home=memory_home,
         slug=slug,
     )
-    if decisions_merged:
+    if merged_decisions != existing_decisions:
         sections["Decisions"] = _format_bullets(merged_decisions)
 
     existing_recent = _bullets(sections.get("Recent", ""))

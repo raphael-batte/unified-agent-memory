@@ -282,6 +282,41 @@ class TestProjectMerge(unittest.TestCase):
             self.assertTrue(archive.is_file())
             self.assertIn("decision number 0", archive.read_text(encoding="utf-8"))
 
+    def test_enforce_cap_on_read_without_new_decisions(self) -> None:
+        extract = {
+            "uuid": "cap-only",
+            "workspace_slug": "irm",
+            "first_query": "noop",
+            "user_messages": [],
+            "user_message_count": 1,
+            "strategy": "tail",
+            "keywords_hit": [],
+            "decision_candidates": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp) / "hub"
+            hub.mkdir()
+            path = hub / "chats" / "projects" / "irm.md"
+            path.parent.mkdir(parents=True)
+            bullets = [f"- [extracted] stale decision {i}" for i in range(35)]
+            path.write_text(
+                "# irm\n_Last updated: 2020-01-01_\n\n"
+                "## Decisions\n\n" + "\n".join(bullets) + "\n\n## Recent\n\n",
+                encoding="utf-8",
+            )
+            pm.apply_extract_to_project(
+                path,
+                extract,
+                today="2026-06-08",
+                memory_home=hub,
+            )
+            text = path.read_text(encoding="utf-8")
+            extracted = [
+                b for b in pm._bullets(pm._parse_sections(text)[1].get("Decisions", ""))
+                if b.startswith("[extracted]")
+            ]
+            self.assertEqual(len(extracted), 30)
+
     def test_apply_leaves_summary_empty(self) -> None:
         extract = {
             "uuid": "x",
