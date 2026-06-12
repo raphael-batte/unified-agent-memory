@@ -18,6 +18,11 @@ POINTER_LOW_CONFIDENCE = 0.6
 SEGMENT_PAUSE_MINUTES = 30
 SEGMENT_JACCARD_WINDOW = 5
 SEGMENT_JACCARD_MIN = 0.15
+SEGMENT_MAX = 6
+SEGMENT_MIN_MESSAGES = 3
+MESSAGE_SELECT_MAX_CHARS = 450
+MAX_DECISION_CANDIDATES = 6
+SUMMARY_BULLETS_MAX = 5
 ROLLING_COMPACTION_ENQUEUE = 15
 ROLLING_COMPACTION_HARD_CAP = 25
 ROLLING_SUMMARY_MAX = 12
@@ -91,6 +96,11 @@ def load_thresholds(hub_config: dict[str, Any] | None = None) -> dict[str, int]:
         "map_reduce_window_size": MAP_REDUCE_WINDOW_SIZE,
         "segment_pause_minutes": SEGMENT_PAUSE_MINUTES,
         "segment_jaccard_window": SEGMENT_JACCARD_WINDOW,
+        "segment_max": SEGMENT_MAX,
+        "segment_min_messages": SEGMENT_MIN_MESSAGES,
+        "message_select_max_chars": MESSAGE_SELECT_MAX_CHARS,
+        "max_decision_candidates": MAX_DECISION_CANDIDATES,
+        "summary_bullets_max": SUMMARY_BULLETS_MAX,
         "rolling_compaction_enqueue": ROLLING_COMPACTION_ENQUEUE,
         "rolling_compaction_hard_cap": ROLLING_COMPACTION_HARD_CAP,
         "rolling_summary_max": ROLLING_SUMMARY_MAX,

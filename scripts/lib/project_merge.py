@@ -13,6 +13,7 @@ from lib.forward_pointer import (
     extract_forward_pointer_result,
 )
 from lib.message_importance import mechanical_bullets
+from lib.novelty import is_novel, normalize_snippet
 from lib.secrets_guard import scan_file
 from lib.pointer_metrics import maybe_log_pointer_clobbered
 from lib.pointer_provenance import (
@@ -133,11 +134,26 @@ def decision_candidates_from_extract(
     min_len: int = 24,
 ) -> list[str]:
     """
-    Heuristic decision seeds from user messages (keyword signal).
+    Decision seeds from extract — prefer cue-based decision_candidates, else keywords.
     Used only when Decisions is empty — agent should refine later.
     """
+    structured = extract.get("decision_candidates") or []
+    if structured:
+        out: list[str] = []
+        for row in structured[:max_items]:
+            if not isinstance(row, dict):
+                continue
+            text = str(row.get("text") or "").strip()
+            if len(text) < min_len:
+                continue
+            if len(text) > max_len:
+                text = text[: max_len - 3].rstrip() + "..."
+            out.append(f"[extracted] {text}")
+        if out:
+            return out
+
     seen: set[str] = set()
-    out: list[str] = []
+    out = []
     for msg in extract.get("user_messages") or []:
         text = re.sub(r"\s+", " ", msg.strip())
         if len(text) < min_len:
@@ -154,6 +170,36 @@ def decision_candidates_from_extract(
         if len(out) >= max_items:
             break
     return out
+
+
+def merge_extracted_decisions(
+    existing: list[str],
+    extract: dict,
+    *,
+    max_add: int = 6,
+) -> tuple[list[str], int]:
+    """Append novel [extracted] decisions; never remove curated bullets."""
+    candidates = extract.get("decision_candidates") or []
+    if not candidates:
+        return existing, 0
+    prior = [normalize_snippet(b) for b in existing if b.strip()]
+    out = list(existing)
+    added = 0
+    for row in candidates:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("text") or "").strip()
+        if not text:
+            continue
+        line = f"[extracted] {text}"
+        if not is_novel(text, prior):
+            continue
+        out.append(line)
+        prior.append(normalize_snippet(text))
+        added += 1
+        if added >= max_add:
+            break
+    return out, added
 
 
 def apply_mechanical_auto_decisions(project_path: Path, extract: dict) -> int:
@@ -230,6 +276,20 @@ def apply_extract_to_project(
 
     preamble, sections = _parse_sections(text)
 
+    summary_bullets = extract.get("summary_bullets") or []
+    if summary_bullets and not _bullets(sections.get("Summary", "")):
+        clean = [str(b).strip() for b in summary_bullets if str(b).strip()]
+        if clean:
+            sections["Summary"] = _format_bullets(clean[:5])
+
+    existing_decisions = _bullets(sections.get("Decisions", ""))
+    merged_decisions, decisions_merged = merge_extracted_decisions(
+        existing_decisions,
+        extract,
+    )
+    if decisions_merged:
+        sections["Decisions"] = _format_bullets(merged_decisions)
+
     existing_recent = _bullets(sections.get("Recent", ""))
     new_recent_line = recent_line(extract, day)
     recent_items = [new_recent_line] + [r for r in existing_recent if r != new_recent_line]
@@ -302,6 +362,9 @@ def apply_extract_to_project(
     return {
         "project_file": str(project_path),
         "decisions_added": decisions_added,
+        "decisions_merged": decisions_merged,
+        "decisions_extracted": int(extract.get("decisions_extracted") or 0),
+        "coverage_ratio": extract.get("coverage_ratio"),
         "next_step_updated": next_step_updated,
         "next_step_kind": next_kind,
         "next_step_placeholder": next_step_placeholder,

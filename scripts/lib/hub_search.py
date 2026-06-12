@@ -195,6 +195,21 @@ def _extract_snippets(data: dict[str, Any]) -> list[tuple[str, str]]:
     fs = str(data.get("final_summary") or "").strip()
     if fs:
         out.append(("summary", fs))
+    for idx, bullet in enumerate(data.get("summary_bullets") or []):
+        if isinstance(bullet, str) and bullet.strip():
+            out.append((f"summary_{idx}", bullet.strip()[:400]))
+    for idx, row in enumerate(data.get("decision_candidates") or []):
+        if isinstance(row, dict):
+            text = str(row.get("text") or "").strip()
+            if text:
+                out.append((f"decision_{idx}", text[:400]))
+    for seg in data.get("topic_segments") or []:
+        if not isinstance(seg, dict):
+            continue
+        sid = seg.get("segment", "?")
+        for j, bullet in enumerate(seg.get("bullets") or []):
+            if isinstance(bullet, str) and bullet.strip():
+                out.append((f"segment_{sid}_{j}", bullet.strip()[:400]))
     for idx, msg in enumerate(data.get("user_messages") or []):
         if isinstance(msg, str) and msg.strip():
             out.append((f"user_{idx}", msg.strip()[:400]))

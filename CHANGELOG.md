@@ -6,6 +6,25 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-06-08
+
+### Added
+
+- **`lib/segment_selection.py`** — per-segment sqrt(count) budget, message trim (~450 chars), composite `summary_bullets`
+- **`lib/decision_extract.py`** — O(n) commitment/correction scan over **all** user messages; `decision_candidates` in extract
+- **Extract schema** — `summary_bullets`, `decision_candidates`, `coverage_ratio`, `decisions_extracted`
+- **Metrics** — `segment_count`, `coverage_ratio`, `decisions_extracted` on boundary distill events
+
+### Changed
+
+- **Topic segmentation (v0.20)** — full chat coverage: merge smallest adjacent segments until ≤6; `segment_min_messages` (default 3) absorbs false early breaks
+- **Long-chat sampling (v0.20)** — chats ≥ `map_reduce_threshold` use per-segment importance selection instead of global top-N
+- **`window_summaries`** — deprecated (empty in extract); segment `bullets` replace map-reduce windows
+- **Merge** — mechanical `## Summary` from `summary_bullets` when empty; append novel `[extracted]` decisions (cap 6) without clobbering curated
+- **Staging** — segment bullets + decision candidates; coverage line
+- **Deep search** — indexes `summary_bullets`, `decision_candidates`, segment bullets in extracts
+- **`novelty.py`** — uses `markdown_sections` (fixes import cycle with `project_merge`)
+
 ## [0.19.0] - 2026-06-11
 
 ### Added

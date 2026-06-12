@@ -1,4 +1,4 @@
-"""Topic segments in long chats — cues, pause gaps, lexical shift."""
+"""Topic segments in long chats — cues, pause gaps, lexical shift, merge to cap."""
 
 from __future__ import annotations
 
@@ -96,30 +96,19 @@ def _collect_breaks(
     return sorted(breaks)
 
 
-def segment_messages(
+def _preview_from_chunk(chunk: list[str]) -> str:
+    if not chunk:
+        return "(segment)"
+    preview = chunk[0][:120].strip()
+    if len(preview) > 117:
+        preview = preview[:117] + "..."
+    return preview or "(segment)"
+
+
+def _raw_segments_from_breaks(
     messages: list[str],
-    *,
-    timestamps: list[str | None] | None = None,
-    max_segments: int = 6,
-    pause_minutes: int = 30,
-    jaccard_window: int = 5,
-    jaccard_min: float = 0.15,
-    memory_home: Path | None = None,
+    breaks: list[int],
 ) -> list[dict]:
-    """
-    Split user messages into topic segments.
-    Returns [{segment, start, count, preview}, ...].
-    """
-    if not messages:
-        return []
-    breaks = _collect_breaks(
-        messages,
-        timestamps=timestamps,
-        pause_minutes=pause_minutes,
-        jaccard_window=jaccard_window,
-        jaccard_min=jaccard_min,
-        memory_home=memory_home,
-    )
     if breaks == [0]:
         breaks = [0, len(messages)]
     elif breaks[-1] != len(messages):
@@ -132,17 +121,130 @@ def segment_messages(
         chunk = messages[start:end]
         if not chunk:
             continue
-        preview = chunk[0][:120].strip()
-        if len(preview) > 117:
-            preview = preview[:117] + "..."
         segments.append(
             {
                 "segment": len(segments) + 1,
                 "start": start,
                 "count": len(chunk),
-                "preview": preview or "(segment)",
+                "end": end,
+                "preview": _preview_from_chunk(chunk),
             }
         )
-        if len(segments) >= max_segments:
+    return segments
+
+
+def _merge_pair(segments: list[dict], left: int, right: int) -> list[dict]:
+    if left > right:
+        left, right = right, left
+    merged = {
+        "segment": segments[left]["segment"],
+        "start": segments[left]["start"],
+        "count": segments[left]["count"] + segments[right]["count"],
+        "end": segments[right]["end"],
+        "preview": segments[left]["preview"],
+    }
+    out = segments[:left] + [merged] + segments[right + 1 :]
+    return out
+
+
+def _merge_small_segments(
+    segments: list[dict],
+    *,
+    min_segment_msgs: int,
+) -> list[dict]:
+    segs = list(segments)
+    if len(segs) <= 1:
+        return segs
+    while True:
+        merged_any = False
+        for i, seg in enumerate(segs):
+            if seg["count"] >= min_segment_msgs:
+                continue
+            if len(segs) <= 1:
+                break
+            if i == 0:
+                partner = 1
+            elif i == len(segs) - 1:
+                partner = i - 1
+            else:
+                left = segs[i - 1]["count"]
+                right = segs[i + 1]["count"]
+                partner = i - 1 if left <= right else i + 1
+            lo, hi = sorted((i, partner))
+            segs = _merge_pair(segs, lo, hi)
+            merged_any = True
             break
-    return segments if len(segments) > 1 else []
+        if not merged_any:
+            break
+    return segs
+
+
+def _merge_to_cap(segments: list[dict], *, max_segments: int) -> list[dict]:
+    segs = list(segments)
+    while len(segs) > max_segments:
+        best_i = 0
+        best_sum = segs[0]["count"] + segs[1]["count"]
+        for i in range(len(segs) - 1):
+            combined = segs[i]["count"] + segs[i + 1]["count"]
+            if combined < best_sum:
+                best_sum = combined
+                best_i = i
+        segs = _merge_pair(segs, best_i, best_i + 1)
+    for idx, seg in enumerate(segs, start=1):
+        seg["segment"] = idx
+    return segs
+
+
+def merge_segments(
+    segments: list[dict],
+    *,
+    max_segments: int = 6,
+    min_segment_msgs: int = 3,
+) -> list[dict]:
+    """Merge adjacent segments until count <= max_segments; absorb tiny segments."""
+    if not segments:
+        return []
+    segs = _merge_small_segments(segments, min_segment_msgs=min_segment_msgs)
+    segs = _merge_to_cap(segs, max_segments=max_segments)
+    return segs
+
+
+def segment_messages(
+    messages: list[str],
+    *,
+    timestamps: list[str | None] | None = None,
+    max_segments: int = 6,
+    min_segment_msgs: int = 3,
+    pause_minutes: int = 30,
+    jaccard_window: int = 5,
+    jaccard_min: float = 0.15,
+    memory_home: Path | None = None,
+) -> list[dict]:
+    """
+    Split user messages into topic segments with full chat coverage.
+    Returns [{segment, start, count, end, preview}, ...] or [] for single-topic chats.
+    """
+    if not messages:
+        return []
+    breaks = _collect_breaks(
+        messages,
+        timestamps=timestamps,
+        pause_minutes=pause_minutes,
+        jaccard_window=jaccard_window,
+        jaccard_min=jaccard_min,
+        memory_home=memory_home,
+    )
+    raw = _raw_segments_from_breaks(messages, breaks)
+    if len(raw) <= 1:
+        return []
+    merged = merge_segments(
+        raw,
+        max_segments=max_segments,
+        min_segment_msgs=min_segment_msgs,
+    )
+    total_covered = sum(seg["count"] for seg in merged)
+    if total_covered != len(messages):
+        raise ValueError(
+            f"segment coverage mismatch: {total_covered} != {len(messages)}"
+        )
+    return merged

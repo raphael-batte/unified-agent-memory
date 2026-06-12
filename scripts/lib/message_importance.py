@@ -11,6 +11,19 @@ _CUES = load_lang_cues()
 _CORRECTION = build_correction_pattern(_CUES)
 _ACTION = build_action_pattern(_CUES)
 _CODE = re.compile(r"```|`[^`]+`")
+_TRIM_RE = re.compile(r"\s+")
+
+
+def trim_message(text: str, *, max_chars: int = 450) -> str:
+    """Trim long user messages for distill sampling (word-safe)."""
+    text = _TRIM_RE.sub(" ", text.strip())
+    if not text or len(text) <= max_chars:
+        return text
+    cut = text[:max_chars]
+    cut = re.sub(r"\s+\S*$", "", cut)
+    if not cut:
+        cut = text[:max_chars]
+    return cut.rstrip(" \t\n\r.,;:-") + "..."
 
 
 def score_message(text: str, *, index: int, total: int) -> float:

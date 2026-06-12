@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from lib.message_importance import rank_messages
+from lib.message_importance import rank_messages, trim_message
 
 _CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")
 
@@ -22,20 +22,24 @@ def select_by_importance(
     max_messages: int,
     token_budget: int | None = None,
     always_include_first: bool = True,
+    max_chars: int | None = None,
 ) -> list[str]:
     """Pick messages by importance score, preserving chronological order in output."""
     if not messages or max_messages <= 0:
         return []
-    if len(messages) <= max_messages and token_budget is None:
-        return messages
+    pool = messages
+    if max_chars is not None:
+        pool = [trim_message(m, max_chars=max_chars) for m in messages]
+    if len(pool) <= max_messages and token_budget is None:
+        return pool
 
-    ranked = rank_messages(messages)
+    ranked = rank_messages(pool)
     chosen_indices: set[int] = set()
     tokens = 0
 
-    if always_include_first and messages:
+    if always_include_first and pool:
         chosen_indices.add(0)
-        tokens += estimate_tokens(messages[0])
+        tokens += estimate_tokens(pool[0])
 
     for idx, _score, msg in ranked:
         if len(chosen_indices) >= max_messages:
@@ -50,18 +54,18 @@ def select_by_importance(
 
     # Fill remaining slots from tail if budget allows
     if len(chosen_indices) < max_messages:
-        for idx in range(len(messages) - 1, -1, -1):
+        for idx in range(len(pool) - 1, -1, -1):
             if len(chosen_indices) >= max_messages:
                 break
             if idx in chosen_indices:
                 continue
-            cost = estimate_tokens(messages[idx])
+            cost = estimate_tokens(pool[idx])
             if token_budget is not None and tokens + cost > token_budget:
                 continue
             chosen_indices.add(idx)
             tokens += cost
 
-    return [messages[i] for i in sorted(chosen_indices)]
+    return [pool[i] for i in sorted(chosen_indices)]
 
 
 def window_messages(

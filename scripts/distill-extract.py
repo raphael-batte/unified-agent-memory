@@ -23,7 +23,13 @@ from lib.defaults import (  # noqa: E402
     MAX_DISTILL_MESSAGES,
     load_thresholds,
 )
-from lib.message_importance import mechanical_bullets  # noqa: E402
+from lib.decision_extract import extract_decision_candidates  # noqa: E402
+from lib.message_importance import mechanical_bullets, trim_message  # noqa: E402
+from lib.segment_selection import (  # noqa: E402
+    build_summary_bullets,
+    coverage_ratio,
+    select_per_segment,
+)
 from lib.topic_segmentation import segment_messages  # noqa: E402
 from lib.token_budget import select_by_importance, window_messages  # noqa: E402
 from lib.secrets_guard import is_terminal_noise, sanitize_message  # noqa: E402
@@ -90,12 +96,14 @@ def select_messages(
     strategy: str,
     *,
     token_budget: int = DISTILL_TOKEN_BUDGET,
+    max_chars: int | None = None,
 ) -> list[str]:
     if strategy in ("importance", "auto"):
         picked = select_by_importance(
             messages,
             max_messages=max_messages,
             token_budget=token_budget,
+            max_chars=max_chars,
         )
         if picked:
             return picked
@@ -190,6 +198,11 @@ def build_extract(
     map_reduce_threshold = int(thresholds["map_reduce_threshold"])
     map_window_size = int(thresholds["map_reduce_window_size"])
     auto_spread_threshold = int(thresholds["auto_spread_threshold"])
+    segment_max = int(thresholds["segment_max"])
+    segment_min_messages = int(thresholds["segment_min_messages"])
+    message_max_chars = int(thresholds["message_select_max_chars"])
+    max_decision_candidates = int(thresholds["max_decision_candidates"])
+    summary_bullets_max = int(thresholds["summary_bullets_max"])
     if max_messages is None:
         max_messages = int(thresholds["max_distill_messages"])
 
@@ -216,15 +229,46 @@ def build_extract(
         strategy, total, auto_spread_threshold=auto_spread_threshold
     )
 
+    topic_segments = (
+        segment_messages(
+            all_msgs,
+            timestamps=all_timestamps,
+            max_segments=segment_max,
+            min_segment_msgs=segment_min_messages,
+            pause_minutes=int(thresholds["segment_pause_minutes"]),
+            jaccard_window=int(thresholds["segment_jaccard_window"]),
+            jaccard_min=float(thresholds["segment_jaccard_min"]),
+            memory_home=memory_home,
+        )
+        if total >= 20
+        else []
+    )
+
     if effective == "all":
-        messages = all_msgs
+        messages = [trim_message(m, max_chars=message_max_chars) for m in all_msgs]
     elif max_messages <= 0:
         messages = []
+    elif (
+        topic_segments
+        and total >= map_reduce_threshold
+        and effective in ("importance", "auto")
+    ):
+        messages, topic_segments = select_per_segment(
+            all_msgs,
+            topic_segments,
+            max_messages=max_messages,
+            token_budget=token_budget,
+            max_chars=message_max_chars,
+        )
     elif total <= max_messages:
-        messages = all_msgs
+        messages = [trim_message(m, max_chars=message_max_chars) for m in all_msgs]
     else:
         messages = select_messages(
-            all_msgs, max_messages, effective, token_budget=token_budget
+            all_msgs,
+            max_messages,
+            effective,
+            token_budget=token_budget,
+            max_chars=message_max_chars,
         )
 
     workspace = workspace_from_path(jsonl, projects_root)
@@ -233,22 +277,18 @@ def build_extract(
     first_query = messages[0][:140] if messages else "(no user text)"
     final_summary = parsed.last_assistant_summary()
     assistant_snippets = extract_assistant_snippets_from_parsed(parsed)
-    window_summaries = (
-        build_window_summaries(all_msgs, window_size=map_window_size)
-        if total >= map_reduce_threshold
-        else []
+    # window_summaries deprecated — topic segment bullets replace map-reduce windows.
+    window_summaries: list[dict] = []
+    summary_bullets = build_summary_bullets(
+        topic_segments,
+        final_assistant=final_summary,
+        max_bullets=summary_bullets_max,
     )
-    topic_segments = (
-        segment_messages(
-            all_msgs,
-            timestamps=all_timestamps,
-            pause_minutes=int(thresholds["segment_pause_minutes"]),
-            jaccard_window=int(thresholds["segment_jaccard_window"]),
-            jaccard_min=float(thresholds["segment_jaccard_min"]),
-            memory_home=memory_home,
-        )
-        if total >= 20
-        else []
+    decision_candidates = extract_decision_candidates(
+        all_msgs,
+        topic_segments,
+        memory_home=memory_home,
+        max_items=max_decision_candidates,
     )
     tokens_estimated = sum(estimate_tokens(m) for m in messages)
     open_todo_items = parsed.open_todos()
@@ -286,6 +326,10 @@ def build_extract(
         "assistant_snippets": assistant_snippets,
         "window_summaries": window_summaries,
         "topic_segments": topic_segments,
+        "summary_bullets": summary_bullets,
+        "decision_candidates": decision_candidates,
+        "coverage_ratio": coverage_ratio(len(messages), total),
+        "decisions_extracted": len(decision_candidates),
         "open_todos": [
             {"id": t.id, "content": t.content, "status": t.status} for t in open_todo_items
         ],

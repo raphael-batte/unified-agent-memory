@@ -220,6 +220,48 @@ class TestProjectMerge(unittest.TestCase):
             self.assertIn("security patch", text)
             self.assertNotIn("[curated]", text)
 
+    def test_apply_writes_summary_bullets_when_empty(self) -> None:
+        extract = {
+            "uuid": "x",
+            "workspace_slug": "app",
+            "summary_bullets": ["Topic A polishing", "Topic B deploy"],
+            "user_messages": [],
+            "user_message_count": 100,
+            "strategy": "importance",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text("## Summary\n\n\n## Recent\n\n", encoding="utf-8")
+            pm.apply_extract_to_project(path, extract, today="2026-06-08")
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("Topic A polishing", text)
+            self.assertIn("Topic B deploy", text)
+
+    def test_merge_extracted_decisions_appends_novel(self) -> None:
+        extract = {
+            "uuid": "x",
+            "workspace_slug": "app",
+            "user_messages": [],
+            "user_message_count": 10,
+            "strategy": "importance",
+            "decision_candidates": [
+                {"text": "folder is named home not landing", "source": "commitment"},
+            ],
+            "decisions_extracted": 1,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text(
+                "## Decisions\n\n- Curated deploy policy\n\n## Recent\n\n",
+                encoding="utf-8",
+            )
+            result = pm.apply_extract_to_project(path, extract, today="2026-06-08")
+            text = path.read_text(encoding="utf-8")
+            self.assertEqual(result["decisions_merged"], 1)
+            self.assertIn("[extracted]", text)
+            self.assertIn("home", text)
+            self.assertIn("Curated deploy policy", text)
+
     def test_apply_leaves_summary_empty(self) -> None:
         extract = {
             "uuid": "x",

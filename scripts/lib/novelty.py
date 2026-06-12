@@ -5,7 +5,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from lib.project_merge import _bullets, _parse_sections
+from lib.markdown_sections import bullets as _bullets
+from lib.markdown_sections import parse_sections as _parse_sections
 
 _NORM_RE = re.compile(r"\s+")
 

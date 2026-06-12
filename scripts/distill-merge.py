@@ -55,6 +55,15 @@ def build_staging_markdown(
     prior_texts = collect_prior_texts(project_path)
     msgs = filter_novel_items(extract.get("user_messages") or [], prior_texts)
 
+    summary_bullets = extract.get("summary_bullets") or []
+    summary_block = ""
+    if summary_bullets:
+        summary_block = "\n".join(f"- {b}" for b in summary_bullets[:5])
+    else:
+        summary_block = (
+            extract.get("final_summary") or extract.get("first_query") or "(no summary)"
+        )[:500]
+
     lines = [
         f"# Distill staging — {slug}",
         f"_Generated: {today} · uuid: {uid}_",
@@ -64,11 +73,17 @@ def build_staging_markdown(
         "",
         "## Summary",
         "",
-        (extract.get("final_summary") or extract.get("first_query") or "(no summary)")[
-            :500
-        ],
+        summary_block,
         "",
     ]
+    cov = extract.get("coverage_ratio")
+    if cov is not None:
+        lines.extend(
+            [
+                f"_Coverage: {cov:.1%} of {extract.get('user_message_count', '?')} user msgs_",
+                "",
+            ]
+        )
     agent_live = extract.get("agent_live") or {}
     if agent_live.get("summary_bullets"):
         lines.extend(["", "## Agent live summary (preCompact)", ""])
@@ -116,21 +131,27 @@ def build_staging_markdown(
     segments = extract.get("topic_segments") or []
     if segments:
         lines.extend(["", "## Topic segments", ""])
-        for seg in segments[:5]:
-            if isinstance(seg, dict):
-                lines.append(
-                    f"- s{seg.get('segment', '?')}: {seg.get('count', 0)} msgs — {seg.get('preview', '')}"
-                )
-
-    windows = extract.get("window_summaries") or []
-    if windows:
-        lines.extend(["", "## Window summaries (map-reduce)", ""])
-        for win in windows[:6]:
-            if not isinstance(win, dict):
+        for seg in segments[:8]:
+            if not isinstance(seg, dict):
                 continue
-            wn = win.get("window", "?")
-            for bullet in win.get("bullets") or []:
-                lines.append(f"- [w{wn}] {bullet}")
+            sid = seg.get("segment", "?")
+            head = (
+                f"- s{sid}: {seg.get('count', 0)} msgs — {seg.get('preview', '')}"
+            )
+            lines.append(head)
+            for bullet in seg.get("bullets") or []:
+                lines.append(f"  - {bullet}")
+
+    decisions = extract.get("decision_candidates") or []
+    if decisions:
+        lines.extend(["", "## Decision candidates (extracted)", ""])
+        for row in decisions[:8]:
+            if not isinstance(row, dict):
+                continue
+            text = str(row.get("text") or "").strip()
+            if text:
+                src = row.get("source", "?")
+                lines.append(f"- [{src}] {text[:240]}")
 
     snippets = extract.get("assistant_snippets") or []
     if snippets:
