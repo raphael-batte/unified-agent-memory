@@ -1,6 +1,6 @@
 # Feedback Memory — Index
 
-What worked (+) and what failed (−). Skill: **feedback-memory**  
+What worked (+) and what failed (−). Skill: **agent-memory** (`feedback/` routing)  
 **Accumulates** — unlike chat distill (rotates). Read **on demand** when proposing plans.
 
 ## When to read

@@ -180,7 +180,7 @@ Use hits: open `path#section`; follow `drill` `[title](uuid)` for transcript tai
 |----------|------|
 | Who / projects / rules | `context/GLOBAL_CONTEXT.md`, `conventions.md`, `infra.md` |
 | Where we stopped | `chats/projects/<slug>.md` → **## Next step** |
-| Past decisions | `chats/projects/<slug>.md` → `## Decisions` |
+| Past decisions | `memory-search.py` → `chats/projects/<slug>.md` or `chats/archive/<slug>-decisions.md` → `## Decisions` |
 | Wins / fails / style | `feedback/{wins,fails}.md`, `preferences.md` |
 
 ---

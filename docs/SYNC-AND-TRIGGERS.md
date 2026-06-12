@@ -17,9 +17,19 @@ Technical reference for distill-first memory with **forward pointer** (`## Next 
 {
   "plugin_root": "",
   "framework_root": "",
-  "memory_home": ""
+  "memory_home": "",
+  "retention_days": 90,
+  "thresholds": {
+    "max_extracted_decisions_per_file": 30,
+    "max_decisions_add_per_distill": 6,
+    "max_layer_file_lines": 100,
+    "distill_token_budget": 12000,
+    "segment_max": 6
+  }
 }
 ```
+
+Omit `thresholds` to use defaults from `scripts/lib/defaults.py`.
 
 Anchor (fixed): `~/.cursor/agent-memory/config.json` → `{ "memory_home": "..." }`.
 
@@ -45,9 +55,10 @@ Sentinel: `$MEMORY_HOME/.state/initialized` (set by `first-run-continue` or exis
 
 1. `init-memory.sh` (idempotent)
 2. List pending chats in `--days` window
-3. `distill-merge` each with `apply=True`, `bootstrap_decisions=True` on first sync
-4. Bootstrap `GLOBAL_CONTEXT.md` Projects table
-5. `verify-memory.py`
+3. `order_for_distill()` — **oldest pending first** (scan inventory stays newest-first)
+4. `distill-extract` + `distill-merge` each with `apply=True`, `bootstrap_decisions=True` on first sync (`--apply` merges novel `[extracted]`; FIFO evict to `archive/<slug>-decisions.md`)
+5. Bootstrap `GLOBAL_CONTEXT.md` Projects table
+6. `verify-memory.py`
 
 Does **not** install legacy global hooks when plugin manifest is present.
 
@@ -61,13 +72,16 @@ CLI: `--scan-only`, `--dry-run`, `--no-hooks`, `--days`, `--limit`.
 
 - **Watermark** — `manifest.json` stores `watermark_user_count` + `watermark_tail_hash`
 - **Debounce** — `lib/boundary_debounce.py` limits repeat boundary distills
-- **Long chats** — map-reduce staging; semantic-merge for Decisions
+- **Long chats** — topic segmentation + importance strategy (`auto`); map-reduce fallback; semantic-merge for `[curated]` Decisions
+- **`[extracted]` cap** — `enforce_extracted_decisions_cap` in `project_merge.py`; archive searchable at 0.7× via `hub_search.py`
 
 ## Key modules
 
 | Module | Role |
 |--------|------|
-| `lib/pending_chats.py` | Scan + pending list |
+| `lib/pending_chats.py` | Scan + pending list; `order_for_distill()` oldest-first |
+| `lib/project_merge.py` | `[extracted]` merge, cap, archive evict |
+| `lib/hub_search.py` | BM25 over projects + archive + context |
 | `lib/boundary_hooks.py` | Hook dispatch |
 | `lib/first_run.py` | Plugin first-run bootstrap |
 | `lib/global_context_bootstrap.py` | Projects table |

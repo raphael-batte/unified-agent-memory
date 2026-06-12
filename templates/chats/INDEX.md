@@ -1,6 +1,6 @@
 # Chat Memory — Index
 
-Distilled conversation history. Skill: **chat-memory**
+Distilled conversation history. Skill: **agent-memory** (routing) · **semantic-merge** (curate Decisions)
 
 ## When to read
 
@@ -19,9 +19,12 @@ Distilled conversation history. Skill: **chat-memory**
 
 ## Archives
 
-| NNN | Date | File | Note |
-|-----|------|------|------|
-| — | — | _(none yet)_ | Rotate when project file > ~100 lines |
+| File | Note |
+|------|------|
+| `archive/<slug>-decisions.md` | Evicted `[extracted]` decisions (searchable, 0.7× weight) |
+| _(manual)_ | Optional rotation when `projects/<slug>.md` > ~100 lines — agent semantic-merge |
+
+See [archive/README.md](archive/README.md).
 
 ## Transcripts
 

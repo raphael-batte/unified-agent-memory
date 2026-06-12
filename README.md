@@ -5,7 +5,7 @@
 Cursor has no memory between sessions. Each new chat starts from scratch, with no knowledge of your projects, past decisions, or where you left off. This plugin gives it persistent memory across three layers:
 
 - **Who you are**. Global context, projects, cross-repo rules
-- **What worked** .Feedback on good and bad agent decisions
+- **What worked** — feedback on good and bad agent decisions
 - **Where you left off**. Distilled chat history with a **Next step** pointer, updated automatically
 
 Memory lives in private files outside the plugin bundle and survives updates. Secrets are redacted on every distill.
@@ -42,7 +42,7 @@ Manual refresh anytime: **`@agent-memory`** → **sync with agent memory**.
 
 On session boundaries (`preCompact`, `sessionEnd`), hooks run incremental distill: scan new or changed Cursor transcripts, redact secrets, update the manifest, and write project summaries with a **`## Next step`** forward pointer.
 
-**Search past decisions** without a database: `memory-search.py` scores hub bullets (and optional extract JSON with `--deep`) using BM25-lite + synonym expansion from `templates/lang/`.
+**Search past decisions** without a database: `memory-search.py` scores hub bullets — including evicted `[extracted]` in `chats/archive/*-decisions.md` (lower weight than active `projects/`) — plus optional extract JSON with `--deep` (BM25-lite + synonym expansion from `templates/lang/`).
 
 On first install, `sessionStart` creates hub template files and an anchor config outside the plugin bundle. Full setup — hub path, migrate from backup, first distill scope — runs in chat via the skill wizard.
 
@@ -98,7 +98,7 @@ Each file includes:
 
 - **`## Recent`** — distilled transcript summary
 - **`## Next step`** — forward pointer (where to continue)
-- **`## Decisions`** — durable choices (when present)
+- **`## Decisions`** — curated choices + mechanical `[extracted]` (cap 30; older evicted → `chats/archive/<slug>-decisions.md`)
 
 ## Security
 
@@ -140,7 +140,7 @@ flowchart TB
 | Scripts | distill, sync, search, verify, doctor, first-run |
 | Templates | hub scaffolds (materialized into `$MEMORY_HOME`) |
 
-**Tests:** `bash tests/run-tests.sh` (170+ checks).
+**Tests:** `bash tests/run-tests.sh` (250+ checks).
 
 ## Common commands
 

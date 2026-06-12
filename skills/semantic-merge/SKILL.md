@@ -15,12 +15,12 @@ Hub staging → curated `chats/projects/<slug>.md`.
 
 - `merge-staging/<slug>-*.md` exists after hook/sync distill
 - `## Next step` is `_No forward pointer._` or `[?]` — also read `pointer-curate-prompt.md`
-- Long chat: staging has `## Window summaries (map-reduce)` — reduce windows into Decisions bullets
+- Long chat: prefer `## Topic segments` + `## Decision candidates` from extract; fallback `## Window summaries (map-reduce)`
 
 ## Steps
 
-1. Read staging (Raw candidates, Window summaries, Assistant snippets, Rolling summary).
-2. Update target `## Decisions` — paraphrase durable facts only; preserve language.
+1. Read staging — **Topic segments**, **Decision candidates**, Raw candidates, Rolling summary; map-reduce windows only if no segments.
+2. Update target `## Decisions` — write `[curated]` bullets; paraphrase durable facts only; preserve language. Leave `[extracted]` to hooks/`--apply`.
 3. If pointer placeholder — one curated bullet under `## Next step` (pointer-curate-prompt).
 4. `verify-memory.py`; never paste secrets.
 

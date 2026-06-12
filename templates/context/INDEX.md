@@ -1,7 +1,7 @@
 # Global Context — Index
 
 L1 navigation for `$MEMORY_HOME/context/`.  
-Skills: **global-context** · Framework: **agent-memory**
+Skill: **agent-memory** (`context/` routing in [INSTRUCTIONS.md](../../INSTRUCTIONS.md))
 
 ## When to read
 

@@ -66,18 +66,19 @@ Transcripts live in `~/.cursor/projects/*/agent-transcripts/` (read-only). Agent
 
 ```
 transcript jsonl
-    → distill-extract.py     structured JSON (~10–50 KB)
+    → distill-extract.py     structured JSON (segments, summary_bullets, decision_candidates)
     → distill-merge.py       manifest + merge-staging/*.md
-    → semantic-merge skill   agent curates ## Decisions
-    → apply on hooks/sync     Recent ≤3 + ## Next step (pointer or placeholder + drill link)
+    → semantic-merge skill   agent curates ## Decisions ([curated] bullets)
+    → apply on hooks/sync     Recent ≤3 + Next step + novel [extracted] (cap → archive)
     → verify-memory.py       integrity + secrets scan
 ```
 
-- **Staging** holds raw candidates for human/agent review.
-- **`--apply`** does not write raw user bullets into Decisions or Summary (v0.5+).
-- **manifest.json** tracks `distilled_at` + watermark (`watermark_user_count`, `watermark_tail_hash`) for content-aware re-distill.
-- **Long chats** — importance-weighted sampling, token budget, mechanical map-reduce windows in staging; agent reduces via semantic-merge skill.
-- **Pointer** — regex in hooks; agent curates via `pointer-curate-prompt.md` when confidence low.
+- **Staging** — Raw candidates, topic segments, decision candidates, rolling summary (agent review).
+- **`--apply`** — mechanical bookkeeping only; does not clobber curated Decisions (v0.5+).
+- **manifest.json** — `distilled_at` + watermark (`watermark_user_count`, `watermark_tail_hash`) for content-aware re-distill.
+- **Long chats** — topic segmentation + importance-weighted per-segment selection; optional map-reduce for very long threads.
+- **`[extracted]`** — precision-filtered decisions (cue-at-start, junk markers); max 30 per project file; FIFO evict to `chats/archive/<slug>-decisions.md`.
+- **Pointer** — heuristics in hooks; agent curates via `pointer-curate-prompt.md` when confidence low.
 - **Health** — `memory-health.py` + weekly baseline; not just structure/secrets verify.
 
 Details: [INSTRUCTIONS.md → Chat memory](INSTRUCTIONS.md#chat-memory-chats) · [MIGRATION.md](MIGRATION.md).
@@ -93,7 +94,9 @@ memory-search.py "query" [--layer chats,context,feedback] [--deep] [--top 8]
     → metrics.jsonl event search_query
 ```
 
-- **Deep tier** (`--deep`) reads `chats/extracts/*.json` not older than `retention_days` in hub `config.json` — same window as `memory-doctor --fix` cleanup.
+- **Layers indexed:** `chats/projects/*.md`, `chats/archive/*-decisions.md`, `context/`, `feedback/`.
+- **Archive weight** — evicted decisions score at **0.7×** vs active project bullets; corpus deduped per `(path, normalized text)`.
+- **Deep tier** (`--deep`) — `chats/extracts/*.json` within `retention_days` (same window as `memory-doctor --fix` cleanup); includes `summary_bullets`, `decision_candidates`, segment bullets.
 - Agents: «how did we do X» / past decision → run search before reading files blindly ([INSTRUCTIONS.md](INSTRUCTIONS.md)).
 
 ## Skills and hooks
@@ -121,7 +124,8 @@ CI in this repo: tests + pinned gitleaks on every push; GitHub Release on tag.
 
 ## Rotation
 
-When a layer file exceeds ~80–100 lines, archive to `archive/NNN-YYYY-MM-DD-<slug>.md` and keep INDEX pointers. Prevents unbounded growth and keeps agent context small.
+- **Chat `[extracted]` cap** — automatic FIFO to `chats/archive/<slug>-decisions.md` (default 30); `compact_archive_decisions()` dedupes archive files.
+- **Manual rotation** — when `projects/<slug>.md` or context/feedback files exceed ~80–100 lines, agent archives older blocks to dated files and keeps INDEX pointers.
 
 ## What this is not
 

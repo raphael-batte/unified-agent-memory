@@ -2,5 +2,11 @@
   "_comment": "Hub config at $MEMORY_HOME/config.json (outside plugin bundle).",
   "plugin_root": "",
   "framework_root": "",
-  "memory_home": ""
+  "memory_home": "",
+  "retention_days": 90,
+  "thresholds": {
+    "max_extracted_decisions_per_file": 30,
+    "max_decisions_add_per_distill": 6,
+    "max_layer_file_lines": 100
+  }
 }

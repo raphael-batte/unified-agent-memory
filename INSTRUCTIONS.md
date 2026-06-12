@@ -223,8 +223,11 @@ feedback/
 chats/
 ├── INDEX.md
 ├── manifest.json         processed[] + pending[]; each entry has distilled_at
-├── projects/<slug>.md
-└── archive/
+├── projects/<slug>.md    active distill (≤ ~100 lines; verify-memory)
+├── archive/
+│   └── <slug>-decisions.md   FIFO-evicted [extracted] (searchable, 0.7× weight)
+├── merge-staging/        agent review after distill
+└── extracts/             structured JSON per chat (--deep search)
 ```
 
 ### manifest.json (required after init)
@@ -250,7 +253,7 @@ chats/
 }
 ```
 
-**Re-distill** when transcript file **mtime** > entry `distilled_at` (full ISO or legacy date).
+**Re-distill** when pending: new chat, transcript **mtime** newer than `distilled_at`, or **watermark** changed (`watermark_user_count` / `watermark_tail_hash` in manifest entry — see `lib/distill_watermark.py`).
 
 **Pending chats:** `python3 <framework>/scripts/list-chats.py --pending`
 
@@ -261,9 +264,10 @@ Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/<uuid>/<uuid>.j
 - **NEVER** read raw `.jsonl` into agent context
 - **NEVER** write passwords/tokens/auth into `projects/*.md` or `manifest.json`
 - **Preserve original chat language(s)** — do not translate during extract or merge
-- **Flow:** `distill-merge.py` (manifest + staging) → agent curates `## Decisions` from staging → optional `--apply` for Recent bookkeeping
-- **Strategy:** `--strategy auto` (spread if >50 user msgs, else tail); long chats → `spread`; backlog → `all`
-- **`--apply`:** Recent≤3 + Summary-if-empty only — **never** raw user bullets into Decisions; uses `manifest.distilled_to` path
+- **Flow:** `distill-extract.py` → `distill-merge.py` (manifest + staging) → agent curates `## Decisions` via semantic-merge → hooks/sync `--apply` for bookkeeping
+- **Strategy:** `--strategy auto` → **importance** (per-segment selection for long chats); legacy: `tail`, `spread`, `all`
+- **`--apply`:** Recent ≤3, `## Next step`, mechanical `## Summary` if empty, novel `[extracted]` from `decision_candidates` (cap 30 per file; FIFO evict to `archive/<slug>-decisions.md`). **Never** raw staging bullets into curated Decisions
+- **`[extracted]` vs curated:** hooks append precision-filtered `[extracted]`; agent writes `[curated]` / keeps `[bootstrap]` — curated bullets are not evicted by cap
 
 ```bash
 python3 $FRAMEWORK_ROOT/scripts/distill-merge.py <uuid> --strategy auto --memory-home "$MEMORY_HOME"
@@ -278,6 +282,10 @@ python3 $FRAMEWORK_ROOT/scripts/verify-memory.py --memory-home "$MEMORY_HOME" --
 **Cursor rule:** optional `templates/cursor-rule/agent-memory-session-end.mdc`.
 
 **Semantic merge:** skill `semantic-merge` + `templates/chats/semantic-merge-prompt.md` — agent curates Decisions from staging (not `--apply`).
+
+**Search:** `memory-search.py` — active `projects/*.md` + `archive/*-decisions.md` + context/feedback; `--deep` adds `extracts/*.json` within `retention_days`. Prefer search before loading whole project files.
+
+**Hub thresholds** (optional in `$MEMORY_HOME/config.json` → `thresholds`): `max_extracted_decisions_per_file` (30), `max_decisions_add_per_distill` (6), `max_layer_file_lines` (100), `distill_token_budget`, `segment_max`, etc. — defaults in `lib/defaults.py`.
 
 **Generic transcripts:** import jsonl to `$MEMORY_HOME/transcripts/<uuid>.jsonl` — `transcript_generic` adapter.
 
@@ -308,7 +316,7 @@ python3 $FRAMEWORK_ROOT/scripts/verify-memory.py --memory-home "$MEMORY_HOME" --
 
 **One Cursor skill:** `@agent-memory` — install: `bash scripts/install-local.sh` → Reload Cursor
 
-Deep dives (read on demand): `skills/chat-memory/`, `skills/semantic-merge/`, etc.
+Deep dives (read on demand): `skills/semantic-merge/SKILL.md`, `templates/chats/semantic-merge-prompt.md`, [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
