@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from lib.secrets_guard import sanitize_message
+from lib.system_blocks import strip_system_blocks
 from lib.transcript_cursor import (
     ParseStats,
     TranscriptSchemaError,
@@ -241,7 +242,8 @@ def _parse_cursor_objects(
                     continue
                 stats.text_blocks += 1
                 text = normalize_user_text(str(block.get("text", "")))
-                if is_redacted_or_noise(text):
+                text = strip_system_blocks(text)
+                if not text or is_redacted_or_noise(text):
                     continue
                 user_messages.append(Msg(text=text, index=index, timestamp=ts, role="user"))
 
@@ -296,7 +298,8 @@ def _parse_generic_objects(
             continue
         stats.user_rows += 1
         stats.text_blocks += 1
-        if is_redacted_or_noise(raw):
+        raw = strip_system_blocks(raw)
+        if not raw or is_redacted_or_noise(raw):
             continue
         user_messages.append(
             Msg(

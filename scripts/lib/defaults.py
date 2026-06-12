@@ -22,7 +22,53 @@ SEGMENT_MAX = 6
 SEGMENT_MIN_MESSAGES = 3
 MESSAGE_SELECT_MAX_CHARS = 450
 MAX_DECISION_CANDIDATES = 6
+MAX_EXTRACTED_DECISIONS_PER_FILE = 30
+MAX_DECISIONS_ADD_PER_DISTILL = 6
+DECISION_MIN_LENGTH = 20
+DECISION_OUTPUT_MAX_LEN = 200
+DECISION_MAX_SOURCE_CHARS = 600
+DECISION_COMMITMENT_CUE_MAX_START = 80
+DECISION_CORRECTION_CUE_MAX_START = 160
 SUMMARY_BULLETS_MAX = 5
+
+# Cursor-injected blocks stripped from user messages (transcript_parse)
+SYSTEM_BLOCK_TAGS: tuple[str, ...] = (
+    "git_status",
+    "agent_transcripts",
+    "attached_files",
+    "system_reminder",
+    "open_and_recently_viewed_files",
+    "agent_skills",
+    "mcp_file_system",
+    "user_info",
+    "rules",
+    "agent_requestable_workspace_rules",
+    "always_applied_workspace_rules",
+    "committing-changes-with-git",
+    "creating-pull-requests",
+    "user_rules",
+)
+
+SYSTEM_SINGLE_LINE_TAGS: tuple[str, ...] = (
+    "timestamp",
+)
+
+# Lang-agnostic junk markers for decision_extract (format/log noise)
+DECISION_JUNK_MARKERS: tuple[str, ...] = (
+    "packages in scope",
+    "warnings:",
+    "webpack-internal",
+    "node_modules/",
+    "run `",
+    "run npm",
+    "lighthouseversion",
+    '"lighthouseversion"',
+    "if the available mcp tools",
+    "<tool_use",
+    "press release:",
+    "jqmigrate:",
+    "grammarly.js",
+)
 ROLLING_COMPACTION_ENQUEUE = 15
 ROLLING_COMPACTION_HARD_CAP = 25
 ROLLING_SUMMARY_MAX = 12
@@ -100,6 +146,8 @@ def load_thresholds(hub_config: dict[str, Any] | None = None) -> dict[str, int]:
         "segment_min_messages": SEGMENT_MIN_MESSAGES,
         "message_select_max_chars": MESSAGE_SELECT_MAX_CHARS,
         "max_decision_candidates": MAX_DECISION_CANDIDATES,
+        "max_extracted_decisions_per_file": MAX_EXTRACTED_DECISIONS_PER_FILE,
+        "max_decisions_add_per_distill": MAX_DECISIONS_ADD_PER_DISTILL,
         "summary_bullets_max": SUMMARY_BULLETS_MAX,
         "rolling_compaction_enqueue": ROLLING_COMPACTION_ENQUEUE,
         "rolling_compaction_hard_cap": ROLLING_COMPACTION_HARD_CAP,

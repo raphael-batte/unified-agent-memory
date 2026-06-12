@@ -5,7 +5,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from lib.defaults import DEFAULT_KEYWORDS, MAX_LAYER_FILE_LINES
+from lib.defaults import (
+    DEFAULT_KEYWORDS,
+    MAX_DECISIONS_ADD_PER_DISTILL,
+    MAX_EXTRACTED_DECISIONS_PER_FILE,
+    MAX_LAYER_FILE_LINES,
+)
+from lib.transcript_cursor import safe_path_component
 from lib.distill_links import enrich_extract, format_chat_markdown_link, recent_bullet
 from lib.forward_pointer import (
     NO_POINTER_MARKER,
@@ -172,15 +178,92 @@ def decision_candidates_from_extract(
     return out
 
 
+def _is_extracted_decision(bullet: str) -> bool:
+    return bullet.strip().startswith("[extracted]")
+
+
+def _effective_max_add(existing: list[str], *, max_add: int, max_extracted: int) -> int:
+    extracted_count = sum(1 for b in existing if _is_extracted_decision(b))
+    room = max(0, max_extracted - extracted_count)
+    return min(max_add, room) if room else 0
+
+
+def archive_evicted_decisions(
+    memory_home: Path | None,
+    slug: str,
+    bullets: list[str],
+) -> int:
+    """Append evicted [extracted] bullets to chats/archive/<slug>-decisions.md."""
+    if memory_home is None or not bullets:
+        return 0
+    safe = safe_path_component(slug or "project")
+    path = memory_home / "chats" / "archive" / f"{safe}-decisions.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    day = _today()
+    lines = [b if b.strip().startswith("- ") else f"- {b}" for b in bullets]
+    block = "\n".join(lines)
+    if path.is_file():
+        prev = path.read_text(encoding="utf-8", errors="replace").rstrip()
+        path.write_text(
+            prev + f"\n\n<!-- evicted {day} -->\n{block}\n",
+            encoding="utf-8",
+        )
+    else:
+        path.write_text(
+            f"# Archived decisions — {slug}\n\n{block}\n",
+            encoding="utf-8",
+        )
+    return len(bullets)
+
+
+def enforce_extracted_decisions_cap(
+    bullets: list[str],
+    *,
+    max_extracted: int,
+    memory_home: Path | None = None,
+    slug: str = "project",
+) -> tuple[list[str], int]:
+    """
+    Keep curated/mechanical bullets; cap [extracted] count (FIFO evict oldest).
+    Returns (trimmed_bullets, evicted_count).
+    """
+    if max_extracted <= 0:
+        return bullets, 0
+    curated: list[str] = []
+    extracted: list[str] = []
+    for bullet in bullets:
+        if _is_extracted_decision(bullet):
+            extracted.append(bullet)
+        else:
+            curated.append(bullet)
+    if len(extracted) <= max_extracted:
+        return curated + extracted, 0
+    evicted = extracted[: len(extracted) - max_extracted]
+    kept = extracted[len(extracted) - max_extracted :]
+    archive_evicted_decisions(memory_home, slug, evicted)
+    return curated + kept, len(evicted)
+
+
 def merge_extracted_decisions(
     existing: list[str],
     extract: dict,
     *,
-    max_add: int = 6,
+    max_add: int = MAX_DECISIONS_ADD_PER_DISTILL,
+    max_extracted: int = MAX_EXTRACTED_DECISIONS_PER_FILE,
+    memory_home: Path | None = None,
+    slug: str | None = None,
 ) -> tuple[list[str], int]:
     """Append novel [extracted] decisions; never remove curated bullets."""
+    slug = slug or str(extract.get("workspace_slug") or "project")
+    existing, _evicted = enforce_extracted_decisions_cap(
+        existing,
+        max_extracted=max_extracted,
+        memory_home=memory_home,
+        slug=slug,
+    )
+    effective_add = _effective_max_add(existing, max_add=max_add, max_extracted=max_extracted)
     candidates = extract.get("decision_candidates") or []
-    if not candidates:
+    if not candidates or effective_add <= 0:
         return existing, 0
     prior = [normalize_snippet(b) for b in existing if b.strip()]
     out = list(existing)
@@ -197,8 +280,14 @@ def merge_extracted_decisions(
         out.append(line)
         prior.append(normalize_snippet(text))
         added += 1
-        if added >= max_add:
+        if added >= effective_add:
             break
+    out, _ = enforce_extracted_decisions_cap(
+        out,
+        max_extracted=max_extracted,
+        memory_home=memory_home,
+        slug=slug,
+    )
     return out, added
 
 
@@ -283,9 +372,22 @@ def apply_extract_to_project(
             sections["Summary"] = _format_bullets(clean[:5])
 
     existing_decisions = _bullets(sections.get("Decisions", ""))
+    from lib.memory_config import load_hub_config  # noqa: E402
+    from lib.defaults import load_thresholds  # noqa: E402
+
+    thresholds = load_thresholds(
+        load_hub_config(memory_home) if memory_home is not None else None
+    )
+    max_extracted = int(thresholds["max_extracted_decisions_per_file"])
+    max_add = int(thresholds["max_decisions_add_per_distill"])
+    slug = str(extract.get("workspace_slug") or project_path.stem)
     merged_decisions, decisions_merged = merge_extracted_decisions(
         existing_decisions,
         extract,
+        max_add=max_add,
+        max_extracted=max_extracted,
+        memory_home=memory_home,
+        slug=slug,
     )
     if decisions_merged:
         sections["Decisions"] = _format_bullets(merged_decisions)

@@ -193,6 +193,7 @@ def distill_jsonl(
             "segment_count": len(extract.get("topic_segments") or []),
             "coverage_ratio": extract.get("coverage_ratio"),
             "decisions_extracted": int(extract.get("decisions_extracted") or 0),
+            "decision_rejections": extract.get("decision_rejections") or {},
             "tokens_estimated": int(extract.get("tokens_estimated") or 0),
             "token_budget_exceeded": bool(extract.get("token_budget_exceeded")),
             "live_apply": bool(apply),

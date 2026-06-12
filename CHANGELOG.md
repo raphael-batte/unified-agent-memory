@@ -6,6 +6,21 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-06-08
+
+### Added
+
+- **`lib/system_blocks.py`** — strip Cursor-injected blocks (`git_status`, `agent_skills`, etc.) from user messages before distill
+- **Decision precision filters** — junk markers, cue-at-start window, long-paste first-line scan, plain-question rejection (negation exception)
+- **Per-file extracted cap** — `MAX_EXTRACTED_DECISIONS_PER_FILE` (30); FIFO evict to `chats/archive/<slug>-decisions.md`; enforce on read and after append
+- **Metrics** — `decision_rejections` in extract payload and boundary distill logs
+- **Tests** — `test_system_blocks.py`; expanded `test_decision_extract.py` and cap/archive in `test_project_merge.py`
+
+### Changed
+
+- **`transcript_parse.py`** — applies `strip_system_blocks()` before noise filtering (cursor + generic parsers)
+- **`decision_extract.py`** — returns `(candidates, rejection_stats)`; stricter false-positive guards
+
 ## [0.21.0] - 2026-06-08
 
 ### Added

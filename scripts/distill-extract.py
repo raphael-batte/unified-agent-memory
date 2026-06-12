@@ -284,7 +284,7 @@ def build_extract(
         final_assistant=final_summary,
         max_bullets=summary_bullets_max,
     )
-    decision_candidates = extract_decision_candidates(
+    decision_candidates, decision_rejections = extract_decision_candidates(
         all_msgs,
         topic_segments,
         memory_home=memory_home,
@@ -330,6 +330,7 @@ def build_extract(
         "decision_candidates": decision_candidates,
         "coverage_ratio": coverage_ratio(len(messages), total),
         "decisions_extracted": len(decision_candidates),
+        "decision_rejections": decision_rejections,
         "open_todos": [
             {"id": t.id, "content": t.content, "status": t.status} for t in open_todo_items
         ],

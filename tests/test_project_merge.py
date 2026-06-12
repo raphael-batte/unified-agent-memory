@@ -262,6 +262,26 @@ class TestProjectMerge(unittest.TestCase):
             self.assertIn("home", text)
             self.assertIn("Curated deploy policy", text)
 
+    def test_enforce_extracted_cap_archives_oldest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp) / "hub"
+            hub.mkdir()
+            bullets = [f"[extracted] decision number {i}" for i in range(35)]
+            bullets.insert(0, "- [curated] Keep this policy")
+            trimmed, evicted = pm.enforce_extracted_decisions_cap(
+                bullets,
+                max_extracted=30,
+                memory_home=hub,
+                slug="irm",
+            )
+            extracted = [b for b in trimmed if b.startswith("[extracted]")]
+            self.assertEqual(len(extracted), 30)
+            self.assertEqual(evicted, 5)
+            self.assertTrue(any("[curated]" in b for b in trimmed))
+            archive = hub / "chats" / "archive" / "irm-decisions.md"
+            self.assertTrue(archive.is_file())
+            self.assertIn("decision number 0", archive.read_text(encoding="utf-8"))
+
     def test_apply_leaves_summary_empty(self) -> None:
         extract = {
             "uuid": "x",
