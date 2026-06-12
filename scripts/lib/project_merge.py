@@ -182,6 +182,35 @@ def _is_extracted_decision(bullet: str) -> bool:
     return bullet.strip().startswith("[extracted]")
 
 
+_ARCHIVE_DECISIONS_HEADING = "## Decisions"
+
+
+def _ensure_archive_decisions_section(text: str, *, slug: str) -> str:
+    """Legacy archives: bullets under H1 only — wrap for hub_search parse_sections."""
+    if _ARCHIVE_DECISIONS_HEADING in text:
+        return text
+    lines = text.splitlines()
+    if not lines:
+        return f"# Archived decisions — {slug}\n\n{_ARCHIVE_DECISIONS_HEADING}\n\n"
+    out: list[str] = []
+    i = 0
+    while i < len(lines) and not lines[i].strip():
+        i += 1
+    if i < len(lines) and lines[i].startswith("#"):
+        out.append(lines[i])
+        i += 1
+        while i < len(lines) and not lines[i].strip():
+            i += 1
+    else:
+        out.append(f"# Archived decisions — {slug}")
+    out.append("")
+    out.append(_ARCHIVE_DECISIONS_HEADING)
+    out.append("")
+    if i < len(lines):
+        out.extend(lines[i:])
+    return "\n".join(out).rstrip() + "\n"
+
+
 def archive_evicted_decisions(
     memory_home: Path | None,
     slug: str,
@@ -197,14 +226,17 @@ def archive_evicted_decisions(
     lines = [b if b.strip().startswith("- ") else f"- {b}" for b in bullets]
     block = "\n".join(lines)
     if path.is_file():
-        prev = path.read_text(encoding="utf-8", errors="replace").rstrip()
+        prev = _ensure_archive_decisions_section(
+            path.read_text(encoding="utf-8", errors="replace").rstrip(),
+            slug=slug,
+        ).rstrip()
         path.write_text(
             prev + f"\n\n<!-- evicted {day} -->\n{block}\n",
             encoding="utf-8",
         )
     else:
         path.write_text(
-            f"# Archived decisions — {slug}\n\n{block}\n",
+            f"# Archived decisions — {slug}\n\n{_ARCHIVE_DECISIONS_HEADING}\n\n{block}\n",
             encoding="utf-8",
         )
     return len(bullets)

@@ -148,6 +148,11 @@ def _docs_from_markdown(
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return []
+    if archived:
+        from lib.project_merge import _ensure_archive_decisions_section  # noqa: WPS433
+
+        slug = path.stem.removesuffix("-decisions") if path.stem.endswith("-decisions") else path.stem
+        text = _ensure_archive_decisions_section(text, slug=slug)
     preamble, sections = parse_sections(text)
     doc_date = last_updated_from_preamble(preamble)
     rel = str(path.relative_to(memory_home))

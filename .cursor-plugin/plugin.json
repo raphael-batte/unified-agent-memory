@@ -1,7 +1,7 @@
 {
   "name": "agent-memory",
   "displayName": "Agent Memory",
-  "version": "0.22.2",
+  "version": "0.22.3",
   "description": "Persistent memory for Cursor: project distill with Next step pointers, global context, feedback, and hub search across past decisions. Private local files, auto-distill on session boundaries, secrets redacted. No cloud required.",
   "author": {
     "name": "raphaelbatte"

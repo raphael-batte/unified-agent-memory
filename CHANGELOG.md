@@ -6,6 +6,17 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.22.3] - 2026-06-12
+
+### Fixed
+
+- **Archive search indexing** — `archive_evicted_decisions` writes bullets under `## Decisions` so `hub_search` indexes evicted `[extracted]` decisions
+- **Legacy archive files** — upgraded on append; `hub_search` normalizes pre-section archives at read time
+
+### Added
+
+- **Tests** — archive section parsing, HTML comment exclusion, archive vs active search score penalty
+
 ## [0.22.2] - 2026-06-12
 
 ### Fixed

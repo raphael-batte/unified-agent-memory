@@ -316,6 +316,56 @@ class TestProjectMerge(unittest.TestCase):
             self.assertIn("old decision 0", archive.read_text(encoding="utf-8"))
             self.assertIn("old decision 1", archive.read_text(encoding="utf-8"))
 
+    def test_archive_has_decisions_section_parseable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp) / "hub"
+            hub.mkdir()
+            pm.archive_evicted_decisions(
+                hub,
+                "app",
+                ["[extracted] canonical URL must use shareurl from server"],
+            )
+            path = hub / "chats" / "archive" / "app-decisions.md"
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("## Decisions", text)
+            sections = pm._parse_sections(text)[1]
+            bullets = pm._bullets(sections.get("Decisions", ""))
+            self.assertEqual(len(bullets), 1)
+            self.assertIn("shareurl", bullets[0])
+
+    def test_archive_legacy_format_upgraded_on_append(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp) / "hub"
+            archive = hub / "chats" / "archive" / "app-decisions.md"
+            archive.parent.mkdir(parents=True)
+            archive.write_text(
+                "# Archived decisions — app\n\n"
+                "- [extracted] legacy bullet without section header\n",
+                encoding="utf-8",
+            )
+            pm.archive_evicted_decisions(
+                hub, "app", ["[extracted] new bullet after legacy upgrade"]
+            )
+            text = archive.read_text(encoding="utf-8")
+            self.assertIn("## Decisions", text)
+            bullets = pm._bullets(pm._parse_sections(text)[1].get("Decisions", ""))
+            self.assertEqual(len(bullets), 2)
+            self.assertIn("legacy bullet", bullets[0])
+            self.assertIn("new bullet", bullets[1])
+
+    def test_archive_comments_not_parsed_as_bullets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp) / "hub"
+            pm.archive_evicted_decisions(hub, "app", ["[extracted] first batch"])
+            pm.archive_evicted_decisions(hub, "app", ["[extracted] second batch"])
+            text = (hub / "chats" / "archive" / "app-decisions.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("<!-- evicted", text)
+            bullets = pm._bullets(pm._parse_sections(text)[1].get("Decisions", ""))
+            self.assertEqual(len(bullets), 2)
+            self.assertTrue(all(not b.startswith("<!--") for b in bullets))
+
     def test_archive_evicted_appends_not_overwrites(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp) / "hub"

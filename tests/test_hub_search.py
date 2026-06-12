@@ -86,6 +86,50 @@ class TestHubSearch(unittest.TestCase):
             self.assertIn("fresh", texts)
             self.assertNotIn("ancient", texts)
 
+    def test_legacy_archive_without_section_header_indexed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp)
+            archive = hub / "chats" / "archive" / "app-decisions.md"
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            archive.write_text(
+                "# Archived decisions — app\n\n"
+                "- canonical shareurl main_head sitemap slash deploy\n",
+                encoding="utf-8",
+            )
+            result = search_hub(
+                hub, "canonical shareurl sitemap", top=3, log_metrics=False
+            )
+            self.assertGreaterEqual(len(result["hits"]), 1)
+            self.assertIn("archive", result["hits"][0]["path"])
+
+    def test_archive_decisions_indexed_below_active(self) -> None:
+        bullet = "Use canonical shareurl from server for main_head template deploy"
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp)
+            project = hub / "chats" / "projects" / "app.md"
+            project.parent.mkdir(parents=True, exist_ok=True)
+            project.write_text(
+                f"## Decisions\n\n- {bullet}\n",
+                encoding="utf-8",
+            )
+            archive = hub / "chats" / "archive" / "app-decisions.md"
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            archive.write_text(
+                f"# Archived decisions — app\n\n## Decisions\n\n- {bullet}\n",
+                encoding="utf-8",
+            )
+            result = search_hub(
+                hub, "canonical shareurl main_head", top=5, log_metrics=False
+            )
+            hits = result["hits"]
+            self.assertGreaterEqual(len(hits), 2)
+            paths = [h["path"] for h in hits]
+            self.assertTrue(any("archive" in p for p in paths))
+            self.assertTrue(any("projects" in p for p in paths))
+            active = next(h for h in hits if "projects" in h["path"])
+            archived = next(h for h in hits if "archive" in h["path"])
+            self.assertGreater(active["score"], archived["score"])
+
     def test_context_paragraph_search(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)
