@@ -20,6 +20,7 @@ from lib.markdown_sections import (
     parse_sections,
 )
 from lib.memory_config import load_hub_config
+from lib.novelty import normalize_snippet
 from lib.search_lang import expand_query_tokens, load_search_synonyms
 from lib.timestamps import parse_distilled_at
 
@@ -295,7 +296,22 @@ def build_corpus(
         meta["extracts_eligible"] = eligible
         meta["extracts_purged_by_retention"] = purged
         meta["extract_docs"] = len(extract_docs)
+    docs = _dedupe_search_docs(docs)
+    meta["hub_docs"] = len(docs)
     return docs, meta
+
+
+def _dedupe_search_docs(docs: list[SearchDoc]) -> list[SearchDoc]:
+    """One searchable doc per (path, normalized text) — drops duplicate archive bullets."""
+    seen: set[tuple[str, str]] = set()
+    out: list[SearchDoc] = []
+    for doc in docs:
+        key = (doc.rel_path, normalize_snippet(doc.text))
+        if not key[1] or key in seen:
+            continue
+        seen.add(key)
+        out.append(doc)
+    return out
 
 
 def _term_freqs(tokens: list[str]) -> dict[str, int]:

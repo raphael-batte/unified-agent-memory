@@ -6,6 +6,13 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.22.4] - 2026-06-12
+
+### Fixed
+
+- **Archive deduplication** — skip novel-evict append when bullet already in archive; `compact_archive_decisions()` rewrites file with unique bullets
+- **Search corpus** — `_dedupe_search_docs()` indexes one doc per `(path, normalized text)`
+
 ## [0.22.3] - 2026-06-12
 
 ### Fixed

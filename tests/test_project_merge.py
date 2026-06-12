@@ -353,7 +353,7 @@ class TestProjectMerge(unittest.TestCase):
             self.assertIn("legacy bullet", bullets[0])
             self.assertIn("new bullet", bullets[1])
 
-    def test_archive_comments_not_parsed_as_bullets(self) -> None:
+    def test_archive_two_batches_keep_distinct_bullets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp) / "hub"
             pm.archive_evicted_decisions(hub, "app", ["[extracted] first batch"])
@@ -361,10 +361,48 @@ class TestProjectMerge(unittest.TestCase):
             text = (hub / "chats" / "archive" / "app-decisions.md").read_text(
                 encoding="utf-8"
             )
-            self.assertIn("<!-- evicted", text)
+            self.assertIn("## Decisions", text)
             bullets = pm._bullets(pm._parse_sections(text)[1].get("Decisions", ""))
             self.assertEqual(len(bullets), 2)
-            self.assertTrue(all(not b.startswith("<!--") for b in bullets))
+
+    def test_archive_skips_duplicate_evicted_bullets(self) -> None:
+        bullet = "[extracted] canonical shareurl from server for main_head template"
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp) / "hub"
+            hub.mkdir()
+            n1 = pm.archive_evicted_decisions(hub, "app", [bullet])
+            n2 = pm.archive_evicted_decisions(hub, "app", [bullet])
+            self.assertEqual(n1, 1)
+            self.assertEqual(n2, 0)
+            bullets = pm._bullets(
+                pm._parse_sections(
+                    (hub / "chats" / "archive" / "app-decisions.md").read_text(
+                        encoding="utf-8"
+                    )
+                )[1].get("Decisions", "")
+            )
+            self.assertEqual(len(bullets), 1)
+
+    def test_compact_archive_removes_duplicate_bullets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp) / "hub"
+            archive = hub / "chats" / "archive" / "app-decisions.md"
+            archive.parent.mkdir(parents=True)
+            archive.write_text(
+                "# Archived decisions — app\n\n## Decisions\n\n"
+                "- [extracted] same decision text repeated here for test\n"
+                "- [extracted] same decision text repeated here for test\n"
+                "- [extracted] unique other decision text for test case\n",
+                encoding="utf-8",
+            )
+            removed = pm.compact_archive_decisions(hub, "app")
+            self.assertEqual(removed, 1)
+            bullets = pm._bullets(
+                pm._parse_sections(archive.read_text(encoding="utf-8"))[1].get(
+                    "Decisions", ""
+                )
+            )
+            self.assertEqual(len(bullets), 2)
 
     def test_archive_evicted_appends_not_overwrites(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

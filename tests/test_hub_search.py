@@ -86,6 +86,28 @@ class TestHubSearch(unittest.TestCase):
             self.assertIn("fresh", texts)
             self.assertNotIn("ancient", texts)
 
+    def test_search_corpus_dedupes_identical_archive_bullets(self) -> None:
+        bullet = "canonical shareurl main_head sitemap deploy unique phrase"
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp)
+            archive = hub / "chats" / "archive" / "app-decisions.md"
+            archive.parent.mkdir(parents=True, exist_ok=True)
+            archive.write_text(
+                "# Archived decisions — app\n\n## Decisions\n\n"
+                f"- {bullet}\n- {bullet}\n- {bullet}\n",
+                encoding="utf-8",
+            )
+            from lib.hub_search import build_corpus
+
+            docs, meta = build_corpus(hub, layers={"chats"})
+            archive_docs = [d for d in docs if "archive" in d.rel_path]
+            self.assertEqual(len(archive_docs), 1)
+            result = search_hub(
+                hub, "canonical shareurl main_head", top=5, log_metrics=False
+            )
+            archive_hits = [h for h in result["hits"] if "archive" in h["path"]]
+            self.assertEqual(len(archive_hits), 1)
+
     def test_legacy_archive_without_section_header_indexed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)

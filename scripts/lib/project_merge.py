@@ -19,7 +19,7 @@ from lib.forward_pointer import (
     extract_forward_pointer_result,
 )
 from lib.message_importance import mechanical_bullets
-from lib.novelty import is_novel, normalize_snippet
+from lib.novelty import dedupe_bullets, is_novel, normalize_snippet
 from lib.secrets_guard import scan_file
 from lib.pointer_metrics import maybe_log_pointer_clobbered
 from lib.pointer_provenance import (
@@ -211,35 +211,74 @@ def _ensure_archive_decisions_section(text: str, *, slug: str) -> str:
     return "\n".join(out).rstrip() + "\n"
 
 
+def _archive_bullets_from_text(text: str, *, slug: str) -> list[str]:
+    normalized = _ensure_archive_decisions_section(text.rstrip(), slug=slug)
+    _preamble, sections = _parse_sections(normalized)
+    return _bullets(sections.get("Decisions", ""))
+
+
+def _write_archive_decisions(path: Path, slug: str, bullets: list[str]) -> None:
+    lines = [b if b.strip().startswith("- ") else f"- {b}" for b in bullets]
+    body = "\n".join(lines)
+    path.write_text(
+        f"# Archived decisions — {slug}\n\n{_ARCHIVE_DECISIONS_HEADING}\n\n{body}\n",
+        encoding="utf-8",
+    )
+
+
 def archive_evicted_decisions(
     memory_home: Path | None,
     slug: str,
     bullets: list[str],
 ) -> int:
-    """Append evicted [extracted] bullets to chats/archive/<slug>-decisions.md."""
+    """Append novel evicted [extracted] bullets; compact duplicates in archive file."""
     if memory_home is None or not bullets:
         return 0
     safe = safe_path_component(slug or "project")
     path = memory_home / "chats" / "archive" / f"{safe}-decisions.md"
     path.parent.mkdir(parents=True, exist_ok=True)
-    day = _today()
-    lines = [b if b.strip().startswith("- ") else f"- {b}" for b in bullets]
-    block = "\n".join(lines)
+
+    formatted = [b if b.strip().startswith("- ") else f"- {b}" for b in bullets]
+    existing: list[str] = []
     if path.is_file():
-        prev = _ensure_archive_decisions_section(
-            path.read_text(encoding="utf-8", errors="replace").rstrip(),
+        existing = _archive_bullets_from_text(
+            path.read_text(encoding="utf-8", errors="replace"),
             slug=slug,
-        ).rstrip()
-        path.write_text(
-            prev + f"\n\n<!-- evicted {day} -->\n{block}\n",
-            encoding="utf-8",
         )
-    else:
-        path.write_text(
-            f"# Archived decisions — {slug}\n\n{_ARCHIVE_DECISIONS_HEADING}\n\n{block}\n",
-            encoding="utf-8",
-        )
-    return len(bullets)
+
+    existing_deduped = dedupe_bullets(existing)
+    prior_norms = [normalize_snippet(b) for b in existing_deduped]
+    novel_lines: list[str] = []
+    for line in formatted:
+        text = line.lstrip("- ").strip()
+        if not text or not is_novel(text, prior_norms):
+            continue
+        novel_lines.append(line)
+        prior_norms.append(normalize_snippet(text))
+
+    merged = dedupe_bullets(existing_deduped + novel_lines)
+    if path.is_file() and not novel_lines and len(merged) == len(existing):
+        return 0
+
+    _write_archive_decisions(path, slug, merged)
+    return len(novel_lines)
+
+
+def compact_archive_decisions(memory_home: Path, slug: str) -> int:
+    """Rewrite archive file with deduplicated ## Decisions bullets. Returns removed count."""
+    safe = safe_path_component(slug or "project")
+    path = memory_home / "chats" / "archive" / f"{safe}-decisions.md"
+    if not path.is_file():
+        return 0
+    existing = _archive_bullets_from_text(
+        path.read_text(encoding="utf-8", errors="replace"),
+        slug=slug,
+    )
+    merged = dedupe_bullets(existing)
+    if len(merged) == len(existing):
+        return 0
+    _write_archive_decisions(path, slug, merged)
+    return len(existing) - len(merged)
 
 
 def enforce_extracted_decisions_cap(

@@ -47,6 +47,19 @@ def is_novel(text: str, prior_texts: list[str]) -> bool:
     return True
 
 
+def dedupe_bullets(bullets: list[str]) -> list[str]:
+    """Keep first occurrence of each normalized bullet (stable order)."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for bullet in bullets:
+        norm = normalize_snippet(bullet)
+        if not norm or norm in seen:
+            continue
+        seen.add(norm)
+        out.append(bullet.strip())
+    return out
+
+
 def filter_novel_items(items: list[str], prior_texts: list[str]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
