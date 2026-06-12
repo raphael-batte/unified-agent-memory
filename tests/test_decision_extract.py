@@ -70,6 +70,34 @@ class TestDecisionExtract(unittest.TestCase):
         self.assertEqual(len(out), 1)
         self.assertIn("landing", out[0]["text"].lower())
 
+    def test_rejects_ru_affirmative_question(self) -> None:
+        msgs = [
+            "\u043c\u043d\u0435 \u043d\u0430\u0434\u043e \u043d\u043e\u0432\u044b\u0439 "
+            "\u043a\u043b\u044e\u0447 \u0441\u043e\u0437\u0434\u0430\u0442\u044c?"
+        ]
+        out, stats = extract_decision_candidates(msgs, max_items=6)
+        self.assertEqual(out, [])
+        self.assertGreater(stats["question"], 0)
+
+    def test_rejects_ru_question_with_late_negation_word(self) -> None:
+        msgs = [
+            "\u0442\u0430\u043a\u043e\u0439 \u0438\u043a\u043e\u043d\u043a\u0438 "
+            "\u043d\u0435\u0442 \u0434\u043b\u044f \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u0430?"
+        ]
+        out, stats = extract_decision_candidates(msgs, max_items=6)
+        self.assertEqual(out, [])
+        self.assertGreater(stats["question"], 0)
+
+    def test_allows_negation_at_message_start_ru(self) -> None:
+        msgs = [
+            "\u043d\u0435 \u043d\u0430\u0434\u043e \u0442\u0430\u043c "
+            "\u0431\u043b\u044e\u043f\u0440\u0438\u043d\u0442\u044b \u2014 "
+            "out of scope for this release cycle"
+        ]
+        out, _stats = extract_decision_candidates(msgs, max_items=6)
+        self.assertGreaterEqual(len(out), 1)
+        self.assertEqual(out[0]["source"], "correction")
+
     def test_rejects_lighthouse_json(self) -> None:
         msgs = [
             '{ "lighthouseVersion": "13.0.2", "requestedUrl": "https://https://example.org//" }'

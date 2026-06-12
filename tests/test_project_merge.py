@@ -282,6 +282,56 @@ class TestProjectMerge(unittest.TestCase):
             self.assertTrue(archive.is_file())
             self.assertIn("decision number 0", archive.read_text(encoding="utf-8"))
 
+    def test_merge_at_cap_appends_then_evicts_to_archive(self) -> None:
+        existing = [f"[extracted] old decision {i}" for i in range(30)]
+        existing.insert(0, "[curated] Keep this policy")
+        extract = {
+            "workspace_slug": "app",
+            "decision_candidates": [
+                {"text": "new decision alpha one two three four"},
+                {"text": "new decision beta one two three four five"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp) / "hub"
+            hub.mkdir()
+            merged, added = pm.merge_extracted_decisions(
+                existing,
+                extract,
+                max_add=6,
+                max_extracted=30,
+                memory_home=hub,
+                slug="app",
+            )
+            extracted = [b for b in merged if b.startswith("[extracted]")]
+            self.assertEqual(added, 2)
+            self.assertEqual(len(extracted), 30)
+            self.assertIn("[curated] Keep this policy", merged)
+            self.assertTrue(
+                any("new decision alpha" in b for b in extracted),
+                "newest candidates should remain after cap",
+            )
+            archive = hub / "chats" / "archive" / "app-decisions.md"
+            self.assertTrue(archive.is_file())
+            self.assertIn("old decision 0", archive.read_text(encoding="utf-8"))
+            self.assertIn("old decision 1", archive.read_text(encoding="utf-8"))
+
+    def test_archive_evicted_appends_not_overwrites(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp) / "hub"
+            hub.mkdir()
+            pm.archive_evicted_decisions(
+                hub, "app", ["[extracted] first batch evicted item here"]
+            )
+            pm.archive_evicted_decisions(
+                hub, "app", ["[extracted] second batch evicted item here"]
+            )
+            text = (hub / "chats" / "archive" / "app-decisions.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("first batch", text)
+            self.assertIn("second batch", text)
+
     def test_enforce_cap_on_read_without_new_decisions(self) -> None:
         extract = {
             "uuid": "cap-only",

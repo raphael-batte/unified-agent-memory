@@ -74,6 +74,11 @@ def filter_by_days(rows: list[dict[str, Any]], days: int) -> list[dict[str, Any]
     return [r for r in rows if r["date"] >= cutoff]
 
 
+def order_for_distill(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Bulk distill: oldest transcript mtime first (scan inventory stays newest-first)."""
+    return list(reversed(rows))
+
+
 def filter_by_slugs(
     rows: list[dict[str, Any]], slugs: set[str]
 ) -> list[dict[str, Any]]:

@@ -182,12 +182,6 @@ def _is_extracted_decision(bullet: str) -> bool:
     return bullet.strip().startswith("[extracted]")
 
 
-def _effective_max_add(existing: list[str], *, max_add: int, max_extracted: int) -> int:
-    extracted_count = sum(1 for b in existing if _is_extracted_decision(b))
-    room = max(0, max_extracted - extracted_count)
-    return min(max_add, room) if room else 0
-
-
 def archive_evicted_decisions(
     memory_home: Path | None,
     slug: str,
@@ -261,9 +255,8 @@ def merge_extracted_decisions(
         memory_home=memory_home,
         slug=slug,
     )
-    effective_add = _effective_max_add(existing, max_add=max_add, max_extracted=max_extracted)
     candidates = extract.get("decision_candidates") or []
-    if not candidates or effective_add <= 0:
+    if not candidates:
         return existing, 0
     prior = [normalize_snippet(b) for b in existing if b.strip()]
     out = list(existing)
@@ -280,7 +273,7 @@ def merge_extracted_decisions(
         out.append(line)
         prior.append(normalize_snippet(text))
         added += 1
-        if added >= effective_add:
+        if added >= max_add:
             break
     out, _ = enforce_extracted_decisions_cap(
         out,

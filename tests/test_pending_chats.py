@@ -36,6 +36,15 @@ class TestPendingChats(unittest.TestCase):
         self.assertEqual(len(filtered), 1)
         self.assertEqual(filtered[0]["date"], "2099-01-01")
 
+    def test_order_for_distill_oldest_first(self) -> None:
+        rows = [
+            {"id": "new", "mtime": 200.0, "date": "2026-06-12"},
+            {"id": "mid", "mtime": 100.0, "date": "2026-06-10"},
+            {"id": "old", "mtime": 50.0, "date": "2026-06-01"},
+        ]
+        ordered = pc.order_for_distill(rows)
+        self.assertEqual([r["id"] for r in ordered], ["old", "mid", "new"])
+
     def test_filter_by_slugs_exact_match(self) -> None:
         rows = [
             {

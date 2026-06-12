@@ -21,7 +21,11 @@ from lib.memory_config import (  # noqa: E402
     resolve_framework_root,
     resolve_memory_home,
 )
-from lib.pending_chats import list_chats_needing_distill, scan_chat_stats  # noqa: E402
+from lib.pending_chats import (  # noqa: E402
+    list_chats_needing_distill,
+    order_for_distill,
+    scan_chat_stats,
+)
 from lib.boundary_hooks import distill_jsonl  # noqa: E402
 
 DEFAULT_PROJECTS_ROOT = Path.home() / ".cursor/projects"
@@ -94,8 +98,8 @@ def _resolve_pending(
     )
     total = len(all_pending)
     if limit is not None and limit > 0:
-        return all_pending[:limit], total, total > limit
-    return all_pending, total, False
+        return order_for_distill(all_pending[:limit]), total, total > limit
+    return order_for_distill(all_pending), total, False
 
 
 def run_sync(

@@ -11,7 +11,7 @@ from typing import Any
 from lib.chats_manifest import load_manifest, processed_by_id
 from lib.global_context_bootstrap import bootstrap_global_context
 from lib.memory_config import persist_paths, resolve_plugin_root
-from lib.pending_chats import list_chats_needing_distill, scan_chat_stats
+from lib.pending_chats import list_chats_needing_distill, order_for_distill, scan_chat_stats
 from lib.project_merge import apply_mechanical_auto_decisions
 
 DEFAULT_PROJECTS_ROOT = Path.home() / ".cursor/projects"
@@ -214,11 +214,13 @@ def run_distill_batch(
 ) -> dict[str, Any]:
     days = int(scope.get("days", 90))
     limit = scope.get("limit")
-    pending = list_chats_needing_distill(
-        memory_home,
-        projects_root=projects_root,
-        days=days,
-        limit=limit,
+    pending = order_for_distill(
+        list_chats_needing_distill(
+            memory_home,
+            projects_root=projects_root,
+            days=days,
+            limit=limit,
+        )
     )
     total = len(pending)
     distilled = 0

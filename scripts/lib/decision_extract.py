@@ -12,6 +12,7 @@ from lib.defaults import (
     DECISION_JUNK_MARKERS,
     DECISION_MAX_SOURCE_CHARS,
     DECISION_MIN_LENGTH,
+    DECISION_NEGATION_MAX_START,
     DECISION_OUTPUT_MAX_LEN,
     MAX_DECISION_CANDIDATES,
 )
@@ -30,7 +31,7 @@ _NEGATION_QUESTION_RE = re.compile(
     r"\u043d\u0435\s+\u043d\u0443\u0436\u043d\u043e|"
     r"\u043d\u0435\s+\u0431\u0443\u0434\u0435\u043c|"
     r"don't|do\s+not|no\s+need"
-    r")",
+    r")(?:\b|\s|$)",
     re.I,
 )
 
@@ -94,8 +95,42 @@ def _scan_text(text: str, *, max_source: int) -> str:
     return text[:max_source]
 
 
-def _is_negation_question(text: str) -> bool:
-    return bool(_NEGATION_QUESTION_RE.search(text))
+def _is_negation_question(
+    text: str,
+    *,
+    max_start: int = DECISION_NEGATION_MAX_START,
+) -> bool:
+    """Negation cue must lead the message to exempt a trailing question mark."""
+    head = text[:max_start].lstrip()
+    return bool(_NEGATION_QUESTION_RE.match(head))
+
+
+_EN_CORRECTION_START = (
+    "don't",
+    "do not",
+    "instead",
+    "wrong",
+    "fix",
+    "broken",
+    "regression",
+    "revert",
+    "not working",
+)
+
+
+def _correction_at_start(
+    text: str,
+    cues: dict[str, list[str]],
+    *,
+    max_start: int = DECISION_CORRECTION_CUE_MAX_START,
+) -> bool:
+    """Correction cue at message start (avoids false match of negation inside RU homonyms)."""
+    head = text[:max_start].strip().lower()
+    for cue in list(cues.get("correction_cues") or []) + list(_EN_CORRECTION_START):
+        c = cue.lower()
+        if head.startswith(c):
+            return True
+    return False
 
 
 def extract_decision_candidates(
@@ -138,9 +173,10 @@ def extract_decision_candidates(
             continue
 
         if text.rstrip().endswith("?"):
-            prefix = text[:DECISION_CORRECTION_CUE_MAX_START]
+            prefix = text[:DECISION_COMMITMENT_CUE_MAX_START]
             has_cue = bool(
-                correction_pat.search(prefix) or commitment_pat.search(prefix)
+                _correction_at_start(text, cues)
+                or commitment_pat.search(prefix)
             )
             if not has_cue and not _is_negation_question(text):
                 stats["question"] += 1

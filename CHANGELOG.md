@@ -6,6 +6,14 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.22.2] - 2026-06-12
+
+### Fixed
+
+- **`merge_extracted_decisions`** — append novel candidates up to `max_decisions_add_per_distill`, then FIFO-evict oldest `[extracted]` to archive (no freeze at cap)
+- **Bulk distill order** — `order_for_distill()` processes pending chats oldest-first (`sync-memory`, `first_run`, sessionStart catch-up); scan inventory stays newest-first
+- **`decision_extract`** — question negation exemption only when negation cue is in the first ~20 characters
+
 ## [0.22.1] - 2026-06-12
 
 ### Fixed

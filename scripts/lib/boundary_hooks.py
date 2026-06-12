@@ -27,6 +27,7 @@ from lib.pointer_curation_queue import (  # noqa: E402
 from lib.memory_config import resolve_memory_home  # noqa: E402
 from lib.pending_chats import (  # noqa: E402
     list_chats_needing_distill,
+    order_for_distill,
     needs_distill,
     slugs_from_workspace_roots,
 )
@@ -303,12 +304,14 @@ def run_session_start_catchup(
             "results": [],
             "reason": "no_workspace_roots",
         }
-    pending = list_chats_needing_distill(
-        memory_home,
-        projects_root=projects_root,
-        days=days,
-        workspace_slugs=slugs,
-        limit=limit,
+    pending = order_for_distill(
+        list_chats_needing_distill(
+            memory_home,
+            projects_root=projects_root,
+            days=days,
+            workspace_slugs=slugs,
+            limit=limit,
+        )
     )
     results: list[dict[str, Any]] = []
     distilled = 0
