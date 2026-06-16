@@ -6,6 +6,12 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.22.6] - 2026-06-16
+
+### Fixed
+
+- Export AGENT_MEMORY_ANCHOR_HOME in run-tests.sh for Python suite
+
 ## [0.22.5] - 2026-06-16
 
 ### Fixed
