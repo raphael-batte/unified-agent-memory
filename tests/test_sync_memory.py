@@ -66,17 +66,30 @@ class TestSyncMemory(unittest.TestCase):
     def test_sync_hub_config_strips_legacy_hub_keys(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp) / "hub"
+            anchor_home = Path(tmp) / "anchor-home"
             minimal_hub(hub, projects=1)
-            sm.run_sync(
-                memory_home=hub,
-                framework_root=REPO_ROOT,
-                dry_run=False,
-                install_hooks=False,
-                limit=0,
-            )
+            import os
+            from unittest import mock
+
+            with mock.patch.dict(
+                os.environ,
+                {"AGENT_MEMORY_ANCHOR_HOME": str(anchor_home)},
+                clear=False,
+            ):
+                sm.run_sync(
+                    memory_home=hub,
+                    framework_root=REPO_ROOT,
+                    dry_run=False,
+                    install_hooks=False,
+                    limit=0,
+                )
             cfg = json.loads((hub / "config.json").read_text())
             for key in ("handoff_mode", "install_root", "dev_root"):
                 self.assertNotIn(key, cfg)
+            anchor_file = anchor_home / ".cursor" / "agent-memory" / "config.json"
+            self.assertTrue(anchor_file.is_file())
+            anchor_cfg = json.loads(anchor_file.read_text())
+            self.assertEqual(anchor_cfg["memory_home"], str(hub.resolve()))
 
 
 if __name__ == "__main__":

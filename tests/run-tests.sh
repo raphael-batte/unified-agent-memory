@@ -2,6 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TEST_TMP="$(mktemp -d)"
+trap 'rm -rf "$TEST_TMP"' EXIT
+export AGENT_MEMORY_ANCHOR_HOME="$TEST_TMP"
+
 cd "$ROOT/tests"
 
 echo
