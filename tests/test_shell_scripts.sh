@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+export AGENT_MEMORY_ANCHOR_HOME="$TMP"
 
 OLD_HUB="$TMP/old"
 NEW_HUB="$TMP/new"

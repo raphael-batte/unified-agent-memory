@@ -56,11 +56,14 @@ def _seed_old_hub(root: Path, *, n_manifest: int = 3) -> None:
     )
 
 
-def _init_fresh_hub(dest: Path) -> None:
+def _init_fresh_hub(dest: Path, *, anchor_home: Path) -> None:
     """Simulate sessionStart init-memory on empty hub."""
     proc = subprocess.run(
         ["bash", str(REPO / "scripts" / "init-memory.sh")],
-        env={"MEMORY_HOME": str(dest), "HOME": str(Path.home())},
+        env={
+            "MEMORY_HOME": str(dest),
+            "AGENT_MEMORY_ANCHOR_HOME": str(anchor_home),
+        },
         capture_output=True,
         text=True,
         check=False,
@@ -75,7 +78,7 @@ class TestMigrateHub(unittest.TestCase):
             old = Path(tmp) / "old"
             new = Path(tmp) / "new"
             _seed_old_hub(old, n_manifest=5)
-            _init_fresh_hub(new)
+            _init_fresh_hub(new, anchor_home=Path(tmp) / "anchor-home")
 
             dest_manifest = cm.load_manifest(new / "chats" / "manifest.json")
             self.assertEqual(len(dest_manifest.get("processed") or []), 0)
@@ -92,7 +95,7 @@ class TestMigrateHub(unittest.TestCase):
             old = Path(tmp) / "old"
             new = Path(tmp) / "new"
             _seed_old_hub(old, n_manifest=1)
-            _init_fresh_hub(new)
+            _init_fresh_hub(new, anchor_home=Path(tmp) / "anchor-home")
             edited = "# Global Context — User edited\n\n## Me\n- keep me\n"
             (new / "context" / "GLOBAL_CONTEXT.md").write_text(edited, encoding="utf-8")
 
@@ -106,7 +109,7 @@ class TestMigrateHub(unittest.TestCase):
             old = Path(tmp) / "old"
             new = Path(tmp) / "new"
             _seed_old_hub(old, n_manifest=2)
-            _init_fresh_hub(new)
+            _init_fresh_hub(new, anchor_home=Path(tmp) / "anchor-home")
             (new / "context" / "GLOBAL_CONTEXT.md").write_text("user", encoding="utf-8")
 
             report = migrate_hub(old, new, template_root=TEMPLATES, mode="overwrite")
@@ -118,7 +121,7 @@ class TestMigrateHub(unittest.TestCase):
             old = Path(tmp) / "old"
             new = Path(tmp) / "new"
             _seed_old_hub(old, n_manifest=4)
-            _init_fresh_hub(new)
+            _init_fresh_hub(new, anchor_home=Path(tmp) / "anchor-home")
 
             report = migrate_hub(old, new, template_root=TEMPLATES, mode="ignore-existing")
             self.assertFalse(report.ok)

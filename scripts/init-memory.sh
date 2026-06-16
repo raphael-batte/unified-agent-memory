@@ -32,7 +32,12 @@ print(resolve_memory_home('${MEMORY_HOME:-}' or None, script_file='$SCRIPT_DIR/i
 
 TEMPLATES="$PLUGIN_ROOT/templates"
 MANIFEST="$MEMORY_HOME/chats/manifest.json"
-ANCHOR_FILE="$HOME/.cursor/agent-memory/config.json"
+ANCHOR_FILE="$(python3 -c "
+import sys
+sys.path.insert(0, '$SCRIPT_DIR')
+from lib.memory_config import anchor_file
+print(anchor_file())
+")"
 
 echo "Agent Memory — init"
 echo "  Plugin:    $PLUGIN_ROOT"
