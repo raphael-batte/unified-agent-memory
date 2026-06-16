@@ -18,7 +18,7 @@ from lib.chats_manifest import (  # noqa: E402
 )
 from lib.doctor_fix import run_fix  # noqa: E402
 from lib.memory_config import (  # noqa: E402
-    ANCHOR_FILE,
+    anchor_file,
     framework_version,
     load_anchor_config,
     load_hub_config,
@@ -68,7 +68,7 @@ def run_doctor(
     return {
         "memory_home": str(memory_home),
         "memory_home_exists": memory_home.is_dir(),
-        "anchor_file": str(ANCHOR_FILE),
+        "anchor_file": str(anchor_file()),
         "anchor_config": anchor_cfg,
         "hub_config": hub_cfg,
         "plugin_root": str(framework_root) if framework_root else None,
@@ -150,6 +150,7 @@ def main() -> int:
             memory_home=memory_home,
             framework_root=framework_root,
             dry_run=args.fix_dry_run,
+            memory_home_cli=bool(args.memory_home),
         )
         if args.json:
             print(json.dumps(fix_report, indent=2))

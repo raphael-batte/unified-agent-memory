@@ -6,7 +6,11 @@ from pathlib import Path
 
 from lib.defaults import HUB_RETENTION_DAYS, load_thresholds
 from lib.hub_retention import cleanup_hub_artifacts
-from lib.memory_config import load_hub_config, persist_paths
+from lib.memory_config import (
+    anchor_points_to_initialized_hub,
+    load_hub_config,
+    persist_paths,
+)
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
 
@@ -16,14 +20,21 @@ def run_fix(
     memory_home: Path,
     framework_root: Path,
     dry_run: bool = False,
+    memory_home_cli: bool = False,
 ) -> dict:
     actions: list[str] = []
     errors: list[str] = []
 
     fw_str = str(framework_root.resolve())
-    hub_str = str(memory_home.resolve())
+    target_hub = memory_home.resolve()
+    if not memory_home_cli:
+        preserved = anchor_points_to_initialized_hub()
+        if preserved is not None and preserved != target_hub:
+            target_hub = preserved
+            actions.append(f"preserved anchor memory_home → {target_hub}")
+    hub_str = str(target_hub)
     if not dry_run:
-        persist_paths(framework_root.resolve(), memory_home.resolve())
+        persist_paths(framework_root.resolve(), target_hub)
         actions.append(
             f"set anchor + hub config → plugin_root={fw_str}, memory_home={hub_str}"
         )
@@ -41,12 +52,12 @@ def run_fix(
             "legacy link-cursor-skills.sh not run — plugin provides skills via bundle"
         )
 
-    hub_cfg = load_hub_config(memory_home)
+    hub_cfg = load_hub_config(target_hub)
     retention_days = int(
         load_thresholds(hub_cfg).get("retention_days", HUB_RETENTION_DAYS)
     )
     retention = cleanup_hub_artifacts(
-        memory_home, retention_days=retention_days, dry_run=dry_run
+        target_hub, retention_days=retention_days, dry_run=dry_run
     )
     if retention["would_delete"] or retention["deleted"]:
         verb = "would delete" if dry_run else "deleted"

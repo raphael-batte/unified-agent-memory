@@ -8,13 +8,46 @@ import warnings
 from pathlib import Path
 
 PLUGIN_MANIFEST = ".cursor-plugin/plugin.json"
-# Fixed anchor (survives bundle updates)
-ANCHOR_DIR = Path.home() / ".cursor" / "agent-memory"
-ANCHOR_FILE = ANCHOR_DIR / "config.json"
-DEFAULT_MEMORY_HOME = ANCHOR_DIR
 # Legacy read-only fallbacks
 LEGACY_GLOBAL_CONFIG = Path.home() / ".config" / "cursor-agent-memory" / "config.json"
 LEGACY_HOOK_ENV = Path.home() / ".cursor" / "hooks" / "agent-memory.env"
+
+
+def anchor_dir() -> Path:
+    """Fixed anchor directory (survives bundle updates). Override via AGENT_MEMORY_ANCHOR_HOME."""
+    base = os.environ.get("AGENT_MEMORY_ANCHOR_HOME", "").strip()
+    root = Path(base).expanduser() if base else Path.home()
+    return root / ".cursor" / "agent-memory"
+
+
+def anchor_file() -> Path:
+    return anchor_dir() / "config.json"
+
+
+def default_memory_home() -> Path:
+    return anchor_dir()
+
+
+def anchor_points_to_initialized_hub() -> Path | None:
+    """Return hub path from anchor when it exists and has user data (guardrail for --fix)."""
+    anchored = memory_home_from_anchor()
+    if anchored is None:
+        return None
+    resolved = anchored.expanduser().resolve()
+    if not resolved.is_dir():
+        return None
+    if (resolved / ".state" / "initialized").is_file():
+        return resolved
+    manifest = resolved / "chats" / "manifest.json"
+    if not manifest.is_file():
+        return None
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
+    if data.get("processed") or data.get("pending"):
+        return resolved
+    return None
 
 
 def _read_json(path: Path) -> dict:
@@ -41,7 +74,7 @@ def _load_legacy_hook_env() -> dict[str, str]:
 
 
 def load_anchor_config() -> dict:
-    return _read_json(ANCHOR_FILE)
+    return _read_json(anchor_file())
 
 
 def memory_home_from_anchor() -> Path | None:
@@ -53,12 +86,13 @@ def memory_home_from_anchor() -> Path | None:
 
 def persist_anchor(memory_home: Path) -> None:
     """Write fixed anchor — only memory_home (survives bundle updates)."""
-    ANCHOR_FILE.parent.mkdir(parents=True, exist_ok=True)
+    path = anchor_file()
+    path.parent.mkdir(parents=True, exist_ok=True)
     data = load_anchor_config()
     if not isinstance(data, dict):
         data = {}
     data["memory_home"] = str(memory_home.expanduser().resolve())
-    ANCHOR_FILE.write_text(
+    path.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
@@ -160,8 +194,8 @@ def resolve_memory_home(
             stacklevel=2,
         )
         return Path(hook_hub).expanduser().resolve()
-    if ANCHOR_FILE.is_file():
-        return DEFAULT_MEMORY_HOME.resolve()
+    if anchor_file().is_file():
+        return default_memory_home().resolve()
     legacy = _read_json(LEGACY_GLOBAL_CONFIG)
     legacy_hub = legacy.get("memory_home", "").strip()
     if legacy_hub:
@@ -172,7 +206,7 @@ def resolve_memory_home(
             stacklevel=2,
         )
         return Path(legacy_hub).expanduser().resolve()
-    return DEFAULT_MEMORY_HOME.resolve()
+    return default_memory_home().resolve()
 
 
 def load_hub_config(memory_home: Path) -> dict:

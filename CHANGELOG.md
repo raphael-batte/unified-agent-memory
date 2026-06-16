@@ -6,10 +6,16 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.22.5] - 2026-06-16
+
+### Fixed
+
+- Isolate anchor path via AGENT_MEMORY_ANCHOR_HOME; guard doctor --fix
+
+
 ### Changed
 
 - **Docs** — archive README/INDEX (`*-decisions.md` evicted `[extracted]`); `auto` strategy = importance; v0.21–0.22 pipeline (`[extracted]` cap, archive search 0.7×, dedup, watermark re-distill); semantic-merge prefers Topic segments + Decision candidates; hub `thresholds` in config template; dead skill refs removed from templates
-
 ## [0.22.4] - 2026-06-12
 
 ### Fixed
