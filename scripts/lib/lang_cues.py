@@ -23,6 +23,7 @@ _LANG_KEYS = (
     "new_task_cues",
     "correction_cues",
     "action_verbs",
+    "user_action_verbs",
 )
 
 _CACHE: dict[str, dict[str, list[str]]] = {}
@@ -73,12 +74,64 @@ def _load_json_file(path: Path) -> dict[str, list[str]]:
     return out
 
 
+def merge_lang_dicts(base: dict[str, list[str]], extra: dict[str, list[str]]) -> dict[str, list[str]]:
+    return _merge_lang_dicts(base, extra)
+
+
 def _merge_lang_dicts(base: dict[str, list[str]], extra: dict[str, list[str]]) -> dict[str, list[str]]:
     merged = {key: list(base.get(key) or []) for key in _LANG_KEYS}
     for key in _LANG_KEYS:
         for phrase in extra.get(key) or []:
             if phrase not in merged[key]:
                 merged[key].append(phrase)
+    return merged
+
+
+def _load_hand_lang(memory_home: Path) -> dict[str, list[str]]:
+    hub = load_hub_config(memory_home)
+    custom = hub.get("lang")
+    out: dict[str, list[str]] = {key: [] for key in _LANG_KEYS}
+    if not isinstance(custom, dict):
+        return out
+    invalid = False
+    for key in _LANG_KEYS:
+        values = custom.get(key)
+        if values is None:
+            continue
+        if not isinstance(values, list):
+            invalid = True
+            break
+        for item in values[:_MAX_LIST_LEN]:
+            phrase = _validate_phrase(item)
+            if phrase is None and item not in (None, ""):
+                invalid = True
+                break
+            if phrase:
+                out[key].append(phrase)
+        if invalid:
+            break
+    if invalid:
+        append_metric(
+            memory_home,
+            {"event": "lang_config_invalid", "detail": "hub config.lang rejected"},
+        )
+        return {key: [] for key in _LANG_KEYS}
+    return out
+
+
+def load_lang_cues_base(
+    *,
+    memory_home: Path | None = None,
+    plugin_root: Path | None = None,
+) -> dict[str, list[str]]:
+    """Template + hand override only (no learned layer)."""
+    lang_dir = _plugin_lang_dir(plugin_root)
+    merged: dict[str, list[str]] = {key: [] for key in _LANG_KEYS}
+    if lang_dir is not None:
+        for path in sorted(lang_dir.glob("*.json")):
+            merged = _merge_lang_dicts(merged, _load_json_file(path))
+    if memory_home is not None:
+        merged = _merge_lang_dicts(merged, _load_hand_lang(memory_home))
     return merged
 
 
@@ -98,34 +151,12 @@ def load_lang_cues(
             merged = _merge_lang_dicts(merged, _load_json_file(path))
 
     if memory_home is not None:
-        hub = load_hub_config(memory_home)
-        custom = hub.get("lang")
-        if isinstance(custom, dict):
-            custom_clean: dict[str, list[str]] = {key: [] for key in _LANG_KEYS}
-            invalid = False
-            for key in _LANG_KEYS:
-                values = custom.get(key)
-                if values is None:
-                    continue
-                if not isinstance(values, list):
-                    invalid = True
-                    break
-                for item in values[:_MAX_LIST_LEN]:
-                    phrase = _validate_phrase(item)
-                    if phrase is None and item not in (None, ""):
-                        invalid = True
-                        break
-                    if phrase:
-                        custom_clean[key].append(phrase)
-                if invalid:
-                    break
-            else:
-                merged = _merge_lang_dicts(merged, custom_clean)
-            if invalid:
-                append_metric(
-                    memory_home,
-                    {"event": "lang_config_invalid", "detail": "hub config.lang rejected"},
-                )
+        from lib.lang_learn import load_lang_learned, project_lang_cues
+
+        learned_doc = load_lang_learned(memory_home)
+        learned_flat = project_lang_cues(learned_doc)
+        merged = _merge_lang_dicts(merged, learned_flat)
+        merged = _merge_lang_dicts(merged, _load_hand_lang(memory_home))
 
     _CACHE[cache_key] = merged
     return merged
@@ -174,6 +205,15 @@ def build_action_pattern(cues: dict[str, list[str]]) -> re.Pattern[str]:
     extra = [re.escape(p) for p in cues.get("action_verbs") or []]
     body = "|".join(en + extra)
     return re.compile(r"(?:%s)" % body, re.I)
+
+
+def build_user_action_pattern(cues: dict[str, list[str]]) -> re.Pattern[str] | None:
+    """Start-anchored learned user directives — does not affect assistant_action."""
+    verbs = cues.get("user_action_verbs") or []
+    if not verbs:
+        return None
+    body = phrase_alt(verbs)
+    return re.compile(rf"^(?:{body})\b", re.I)
 
 
 def build_line_patterns(cues: dict[str, list[str]]) -> list[re.Pattern[str]]:

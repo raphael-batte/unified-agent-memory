@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from lib.chats_manifest import load_manifest, processed_by_id
-from lib.defaults import DOMAIN_STOPWORDS
+from lib.defaults import DOMAIN_STOPWORDS, GENERIC_MESSAGE_START
 from lib.forward_pointer import NO_POINTER_MARKER, STALE_POINTER_PREFIX
 from lib.pointer_metrics import log_pointer_feedback
 from lib.pointer_provenance import is_curated_next_step, strip_curated_marker
@@ -17,26 +17,6 @@ from lib.transcript_parse import parse_transcript
 
 _PLACEHOLDER_RE = re.compile(r"^\[\?\]")
 _TOKEN_RE = re.compile(r"[\w\u0400-\u04ff]+", re.UNICODE)
-_GENERIC_START = frozenset(
-    {
-        "hi",
-        "hello",
-        "hey",
-        "continue",
-        "thanks",
-        "ok",
-        "okay",
-        "\u043f\u0440\u0438\u0432\u0435\u0442",
-        "\u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0430\u0439",
-        "\u043f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u043c",
-        "\u0434\u0430\u0432\u0430\u0439",
-        "\u0441\u043f\u0430\u0441\u0438\u0431\u043e",
-        "\u043e\u043a",
-        "\u043e\u043a\u0435\u0439",
-    }
-)
-
-
 def _project_path(memory_home: Path, slug: str) -> Path:
     safe = safe_path_component(slug, fallback="project")
     return memory_home / "chats" / "projects" / f"{safe}.md"
@@ -141,8 +121,8 @@ def classify_session_adherence(
     first_tokens = _significant_tokens(first_norm)
     generic_start = (
         len(first_norm) < 10
-        or first_tokens <= _GENERIC_START
-        or first_norm in _GENERIC_START
+        or first_tokens <= GENERIC_MESSAGE_START
+        or first_norm in GENERIC_MESSAGE_START
     )
 
     per_msg = [token_overlap_ratio(pointer, [m]) for m in msgs[:5]]

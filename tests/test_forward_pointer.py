@@ -12,6 +12,7 @@ SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from lib import forward_pointer as fp  # noqa: E402
+from lib import lang_cues as lc  # noqa: E402
 
 FIXTURE_TODOS = Path(__file__).resolve().parent / "fixtures" / "chat-with-todos.jsonl"
 
@@ -134,6 +135,33 @@ class TestForwardPointer(unittest.TestCase):
         hit = fp.extract_forward_pointer(extract)
         self.assertIsNotNone(hit)
         self.assertIn("run-device", hit)
+
+    def test_user_action_verbs_start_anchored_only(self) -> None:
+        cues = {
+            "next_step_markers": [],
+            "list_intro_words": [],
+            "recommend_stems": [],
+            "recommend_actions": [],
+            "continue_phrases": [],
+            "commitment_prefixes": [],
+            "new_task_cues": [],
+            "correction_cues": [],
+            "action_verbs": [],
+            "user_action_verbs": ["zapusti"],
+        }
+        pat = lc.build_user_action_pattern(cues)
+        self.assertIsNotNone(pat)
+        assert pat is not None
+        self.assertIsNotNone(pat.search("zapusti testy na ustroistve"))
+        self.assertIsNone(pat.search("please zapusti testy"))
+
+    def test_generic_commitment_tail_rejected(self) -> None:
+        extract = {
+            "user_messages": ["okay then ok"],
+            "source_path": "/nonexistent/chat.jsonl",
+        }
+        result = fp.extract_forward_pointer_result(extract)
+        self.assertTrue(result.is_low_confidence or result.text is None)
 
 
 if __name__ == "__main__":

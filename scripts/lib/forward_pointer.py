@@ -6,11 +6,15 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from lib.lang_actionability import is_pointer_actionable
 from lib.lang_cues import (
     build_action_pattern,
     build_commitment_pattern,
     build_line_patterns,
+    build_user_action_pattern,
     load_lang_cues,
+    load_lang_cues_base,
+    merge_lang_dicts,
 )
 from lib.secrets_guard import is_terminal_noise, sanitize_message
 from lib.agent_live_distill_constants import (
@@ -44,7 +48,15 @@ _SOURCE_CONFIDENCE: dict[str, float] = {
     "none": 0.0,
 }
 
-_PATTERN_CACHE: dict[str, tuple[list[re.Pattern[str]], re.Pattern[str], re.Pattern[str]]] = {}
+_PATTERN_CACHE: dict[
+    str,
+    tuple[
+        list[re.Pattern[str]],
+        re.Pattern[str],
+        re.Pattern[str],
+        re.Pattern[str] | None,
+    ],
+] = {}
 
 
 @dataclass(frozen=True)
@@ -73,24 +85,45 @@ def _resolve_memory_home(extract: dict, memory_home: Path | None) -> Path | None
     return None
 
 
-def _patterns_for(memory_home: Path | None = None) -> tuple[
-    list[re.Pattern[str]], re.Pattern[str], re.Pattern[str]
+def _patterns_from_cues(
+    cues: dict[str, list[str]],
+) -> tuple[
+    list[re.Pattern[str]],
+    re.Pattern[str],
+    re.Pattern[str],
+    re.Pattern[str] | None,
 ]:
+    return (
+        build_line_patterns(cues),
+        build_commitment_pattern(cues),
+        build_action_pattern(cues),
+        build_user_action_pattern(cues),
+    )
+
+
+def _patterns_for(
+    memory_home: Path | None = None,
+    *,
+    cues: dict[str, list[str]] | None = None,
+) -> tuple[
+    list[re.Pattern[str]],
+    re.Pattern[str],
+    re.Pattern[str],
+    re.Pattern[str] | None,
+]:
+    if cues is not None:
+        return _patterns_from_cues(cues)
     key = str(memory_home or "")
     if key not in _PATTERN_CACHE:
-        cues = load_lang_cues(memory_home=memory_home)
-        _PATTERN_CACHE[key] = (
-            build_line_patterns(cues),
-            build_commitment_pattern(cues),
-            build_action_pattern(cues),
-        )
+        loaded = load_lang_cues(memory_home=memory_home)
+        _PATTERN_CACHE[key] = _patterns_from_cues(loaded)
     return _PATTERN_CACHE[key]
 
 
 def _clean_candidate(text: str) -> str | None:
     line = re.sub(r"\s+", " ", text.strip())
     line = re.sub(r"^[-*•]\s+", "", line)
-    if len(line) < MIN_POINTER_LEN:
+    if not is_pointer_actionable(line, min_len=MIN_POINTER_LEN):
         return None
     if len(line) > MAX_POINTER_LEN:
         line = line[: MAX_POINTER_LEN - 3].rstrip() + "..."
@@ -100,8 +133,13 @@ def _clean_candidate(text: str) -> str | None:
     return clean
 
 
-def _match_patterns(blob: str, *, memory_home: Path | None = None) -> str | None:
-    line_pats, _, _ = _patterns_for(memory_home)
+def _match_patterns(
+    blob: str,
+    *,
+    memory_home: Path | None = None,
+    cues: dict[str, list[str]] | None = None,
+) -> str | None:
+    line_pats, _, _, _ = _patterns_for(memory_home, cues=cues)
     for pat in line_pats:
         m = pat.search(blob)
         if m:
@@ -111,25 +149,40 @@ def _match_patterns(blob: str, *, memory_home: Path | None = None) -> str | None
     return None
 
 
-def _match_commitment(blob: str, *, memory_home: Path | None = None) -> str | None:
-    _, commitment_pat, _ = _patterns_for(memory_home)
+def _match_commitment(
+    blob: str,
+    *,
+    memory_home: Path | None = None,
+    cues: dict[str, list[str]] | None = None,
+) -> str | None:
+    _, commitment_pat, _, _ = _patterns_for(memory_home, cues=cues)
     m = commitment_pat.search(blob)
     if not m:
         return None
-    return _clean_candidate(m.group(1).split("\n")[0])
+    tail = m.group(1).split("\n")[0]
+    return _clean_candidate(tail)
 
 
-def _try_user_text(blob: str, *, memory_home: Path | None = None) -> tuple[str | None, str]:
+def _try_user_text(
+    blob: str,
+    *,
+    memory_home: Path | None = None,
+    cues: dict[str, list[str]] | None = None,
+) -> tuple[str | None, str]:
     norm = normalize_user_text(blob).strip()
     if not norm or is_terminal_noise(norm):
         return None, "none"
-    hit = _match_commitment(norm, memory_home=memory_home)
+    hit = _match_commitment(norm, memory_home=memory_home, cues=cues)
     if hit:
         return hit, "user_commitment"
-    hit = _match_patterns(norm, memory_home=memory_home)
+    hit = _match_patterns(norm, memory_home=memory_home, cues=cues)
     if hit:
         return hit, "user_pattern"
-    _, _, action_pat = _patterns_for(memory_home)
+    _, _, action_pat, user_action_pat = _patterns_for(memory_home, cues=cues)
+    if "?" not in norm and user_action_pat is not None and user_action_pat.search(norm):
+        cand = _clean_candidate(norm)
+        if cand:
+            return cand, "user_pattern"
     if "?" not in norm and action_pat.search(norm):
         cand = _clean_candidate(norm)
         if cand:
@@ -146,6 +199,7 @@ def extract_forward_pointer_result(
     extract: dict,
     *,
     memory_home: Path | None = None,
+    cues: dict[str, list[str]] | None = None,
 ) -> PointerResult:
     """
     Heuristic next-step from transcript tail with confidence tier.
@@ -171,7 +225,7 @@ def extract_forward_pointer_result(
         parsed = parse_transcript(jsonl)
         last_user = parsed.last_user_text()
         if last_user:
-            hit, tier = _try_user_text(last_user, memory_home=hub)
+            hit, tier = _try_user_text(last_user, memory_home=hub, cues=cues)
             if hit:
                 return PointerResult(hit, _SOURCE_CONFIDENCE[tier], tier)
 
@@ -184,7 +238,7 @@ def extract_forward_pointer_result(
             )
 
         for blob in reversed(parsed.assistant_text_tail()):
-            hit = _match_patterns(blob, memory_home=hub)
+            hit = _match_patterns(blob, memory_home=hub, cues=cues)
             if hit:
                 tier = "assistant_pattern"
                 if last_user and "?" in last_user:
@@ -196,7 +250,7 @@ def extract_forward_pointer_result(
             if not paras:
                 continue
             last = paras[-1]
-            _, _, action_pat = _patterns_for(hub)
+            _, _, action_pat, _ = _patterns_for(hub, cues=cues)
             if action_pat.search(last):
                 cand = _clean_candidate(last.split("\n")[0])
                 if cand:
@@ -215,7 +269,7 @@ def extract_forward_pointer_result(
         )
 
     for msg in reversed(_user_tail_from_extract(extract)):
-        hit, tier = _try_user_text(msg, memory_home=hub)
+        hit, tier = _try_user_text(msg, memory_home=hub, cues=cues)
         if hit:
             conf = _SOURCE_CONFIDENCE.get(
                 "extract_fallback" if tier == "user_pattern" else tier,
@@ -225,6 +279,20 @@ def extract_forward_pointer_result(
             return PointerResult(hit, conf, src)
 
     return PointerResult(None, _SOURCE_CONFIDENCE["none"], "none")
+
+
+def score_extract_with_learned_projection(
+    extract: dict,
+    *,
+    memory_home: Path | None,
+    learned_flat: dict[str, list[str]],
+) -> PointerResult:
+    """Template + hand + projected learned (for dry tier-shift before/after)."""
+    base = load_lang_cues_base(memory_home=memory_home)
+    merged = merge_lang_dicts(base, learned_flat)
+    return extract_forward_pointer_result(
+        extract, memory_home=memory_home, cues=merged
+    )
 
 
 def extract_forward_pointer(

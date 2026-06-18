@@ -228,6 +228,15 @@ def run_distill_batch(
     errors = 0
     details: list[dict[str, Any]] = []
 
+    from lib.lang_learn import corpus_rows_for_mining, prepare_lang_learn_for_batch
+
+    mine_rows = corpus_rows_for_mining(
+        memory_home, pending, projects_root=projects_root, days=days
+    )
+    lang_learn = prepare_lang_learn_for_batch(
+        memory_home, mine_rows, force=bool(mine_rows)
+    )
+
     for i, row in enumerate(pending, start=1):
         out = _distill_with_fallback(
             row, memory_home=memory_home, projects_root=projects_root
@@ -255,6 +264,7 @@ def run_distill_batch(
         "projects": projects,
         "details": details,
         "plugin_root": str(plugin_root),
+        "lang_learn": lang_learn,
     }
 
 
