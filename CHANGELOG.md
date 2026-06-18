@@ -6,6 +6,18 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-06-18
+
+### Added
+
+- lang-learn: mine user cues pre-distill, user_action_verbs tier boost
+
+## [0.22.7] - 2026-06-17
+
+### Fixed
+
+- install-local links bundle skills to ~/.cursor/skills for @agent-memory
+
 ## [0.22.6] - 2026-06-16
 
 ### Fixed

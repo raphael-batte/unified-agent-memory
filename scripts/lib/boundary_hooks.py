@@ -313,6 +313,12 @@ def run_session_start_catchup(
             limit=limit,
         )
     )
+    from lib.lang_learn import corpus_rows_for_mining, prepare_lang_learn_for_batch
+
+    mine_rows = corpus_rows_for_mining(
+        memory_home, pending, projects_root=projects_root, days=days
+    )
+    lang_learn = prepare_lang_learn_for_batch(memory_home, mine_rows)
     results: list[dict[str, Any]] = []
     distilled = 0
     skipped = 0
@@ -356,6 +362,7 @@ def run_session_start_catchup(
         "candidates": len(pending),
         "workspace_slugs": sorted(slugs),
         "results": results,
+        "lang_learn": lang_learn,
     }
 
 

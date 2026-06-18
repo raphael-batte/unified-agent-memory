@@ -152,6 +152,18 @@ def run_sync(
 
     distill_details: list[dict] = []
     if not dry_run:
+        from lib.lang_learn import (
+            corpus_rows_for_mining,
+            lang_learned_path,
+            prepare_lang_learn_for_batch,
+        )
+
+        mine_rows = corpus_rows_for_mining(
+            memory_home, pending, projects_root=projects_root, days=days
+        )
+        report["lang_learn"] = prepare_lang_learn_for_batch(
+            memory_home, mine_rows, force=not lang_learned_path(memory_home).is_file()
+        )
         for row in pending:
             out = distill_jsonl(
                 row["jsonl"],
