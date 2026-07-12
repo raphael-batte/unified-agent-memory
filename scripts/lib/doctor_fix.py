@@ -6,6 +6,7 @@ from pathlib import Path
 
 from lib.defaults import HUB_RETENTION_DAYS, load_thresholds
 from lib.hub_retention import cleanup_hub_artifacts
+from lib.project_merge import compact_all_live_decisions
 from lib.memory_config import (
     anchor_points_to_initialized_hub,
     load_hub_config,
@@ -66,6 +67,17 @@ def run_fix(
             f"{verb} {count} stale staging/extract file(s) "
             f"(>{retention_days}d, processed chats only)"
         )
+
+    if not dry_run:
+        compacted = compact_all_live_decisions(target_hub)
+        if compacted:
+            total = sum(compacted.values())
+            actions.append(
+                f"compacted live Decisions in {len(compacted)} project(s) "
+                f"({total} duplicate/junk bullet(s) removed)"
+            )
+    else:
+        actions.append("would compact live Decisions in chats/projects/*.md")
 
     return {
         "actions": actions,
