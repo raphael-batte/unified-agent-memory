@@ -13,6 +13,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from lib.chats_manifest import load_manifest, processed_by_id, save_manifest, upsert_processed  # noqa: E402
 from lib.memory_config import resolve_memory_home  # noqa: E402
+from lib.open_threads import collect_open_threads  # noqa: E402
 from lib.pointer_provenance import PROVENANCE_CURATED, format_curated_next_step, strip_curated_marker  # noqa: E402
 from lib.project_merge import (  # noqa: E402
     LAST_UPDATED,
@@ -173,6 +174,7 @@ def add_open_thread(
 
     project_path.parent.mkdir(parents=True, exist_ok=True)
     day = now_iso()
+    stamp = day[:10]  # tail-of-topic timestamp = today (date only)
     if project_path.is_file():
         raw = project_path.read_text(encoding="utf-8", errors="replace")
     else:
@@ -183,7 +185,7 @@ def add_open_thread(
 
     preamble, sections = _parse_sections(raw)
     existing = _bullets(sections.get("Open threads", ""))
-    updated = upsert_open_thread(existing, label, body, cap=cap)
+    updated = upsert_open_thread(existing, label, body, updated=stamp, cap=cap)
     sections["Open threads"] = _format_bullets(updated)
     merged = _join_sections(preamble, sections)
 
@@ -241,6 +243,26 @@ def cmd_set(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_threads(args: argparse.Namespace) -> int:
+    memory_home = resolve_memory_home(args.memory_home, script_file=__file__)
+    threads = collect_open_threads(
+        memory_home, days=args.days, priority_slug=args.slug
+    )
+    print(
+        json.dumps(
+            {
+                "memory_home": str(memory_home),
+                "days": args.days,
+                "count": len(threads),
+                "threads": [t.to_dict() for t in threads],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
+    return 0
+
+
 def cmd_show(args: argparse.Namespace) -> int:
     memory_home = resolve_memory_home(args.memory_home, script_file=__file__)
     project_path = _resolve_project_path(memory_home, args.project)
@@ -277,6 +299,13 @@ def main() -> int:
     thread_p.add_argument("label", help="Direction label, e.g. widget-ui")
     thread_p.add_argument("text", nargs="?", help="Thread text (or stdin)")
     thread_p.set_defaults(func=cmd_add_thread)
+
+    threads_p = sub.add_parser(
+        "threads", help="Rolling union of active Open threads across the whole hub"
+    )
+    threads_p.add_argument("--days", type=int, default=30, help="Window (default 30)")
+    threads_p.add_argument("--slug", help="Current workspace slug — sorts first (hint)")
+    threads_p.set_defaults(func=cmd_threads)
 
     show_p = sub.add_parser("show", help="Show Next step + Open threads")
     show_p.add_argument("project", help="Project slug or projects/foo.md")

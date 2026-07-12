@@ -21,9 +21,10 @@ One paragraph: what this project is about in your conversations.
 
 ## Open threads
 
-<!-- Active directions (multi-track). One bullet per direction, cap 5-7.
+<!-- Active directions (multi-track), rolling 30d. One bullet per direction, cap 5-7.
+     `· _upd DATE_` is the tail-of-topic timestamp (stamped by add-thread; window filter).
      Upsert via: memory-pointer.py add-thread <project> <dir> "…" -->
-- **[example-dir]** Where this direction stopped (deploy YYYY-MM-DD)
+- **[example-dir]** Where this direction stopped · _upd YYYY-MM-DD_
 
 ## Recent
 

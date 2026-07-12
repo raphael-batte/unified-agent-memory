@@ -83,7 +83,9 @@ def recent_line(extract: dict, today: str | None = None) -> str:
     return recent_bullet(extract, today or _today())
 
 
-OPEN_THREAD_LABEL = re.compile(r"^\*\*\[(?P<label>[^\]]+)\]\*\*\s*(?P<text>.*)$")
+OPEN_THREAD_LABEL = re.compile(r"^\*\*\[(?P<label>[^\]]+)\]\*\*\s*(?P<text>.*)$", re.S)
+# Trailing "· _upd YYYY-MM-DD_" tail-of-topic timestamp; tolerant of ISO too.
+OPEN_THREAD_STAMP = re.compile(r"\s*·\s*_upd\s+(?P<date>[0-9T:\-]+)_\s*$")
 MAX_OPEN_THREADS = 7
 
 
@@ -93,28 +95,60 @@ def open_thread_label(bullet: str) -> str | None:
     return m.group("label").strip() if m else None
 
 
+def _strip_stamp(text: str) -> tuple[str, str | None]:
+    """Split trailing ``· _upd DATE_`` off a thread text. Returns (text, date|None)."""
+    m = OPEN_THREAD_STAMP.search(text)
+    if not m:
+        return text.strip(), None
+    return text[: m.start()].strip(), m.group("date").strip()
+
+
+def parse_open_thread(bullet: str) -> dict | None:
+    """
+    Parse a ``**[label]** text · _upd DATE_`` bullet.
+
+    Returns ``{"label", "text", "updated"}`` where ``updated`` is the raw date
+    string (or ``None`` when the bullet carries no stamp). Non-matching lines → None.
+    """
+    m = OPEN_THREAD_LABEL.match(bullet.strip())
+    if not m:
+        return None
+    label = m.group("label").strip()
+    body, stamp = _strip_stamp(m.group("text").strip())
+    if not label:
+        return None
+    return {"label": label, "text": body, "updated": stamp}
+
+
+def format_open_thread(label: str, text: str, updated: str) -> str:
+    """Build a ``**[label]** text · _upd DATE_`` bullet (timestamp = tail of topic)."""
+    return f"**[{label}]** {text} · _upd {updated}_"
+
+
 def upsert_open_thread(
     existing: list[str],
     label: str,
     text: str,
     *,
+    updated: str,
     cap: int = MAX_OPEN_THREADS,
 ) -> list[str]:
     """
-    Upsert a direction bullet into Open threads.
+    Upsert a direction bullet into Open threads, stamping ``· _upd {updated}_``.
 
-    - Replaces the bullet whose ``[label]`` matches (case-insensitive), else appends.
+    - Replaces the bullet whose ``[label]`` matches (case-insensitive), else appends;
+      a replace refreshes the timestamp (tail-of-topic moves forward).
     - Preserves order of other bullets; updated/new entry moves to the end (most recent).
     - Drops empty/placeholder bullets; caps to the last ``cap`` entries.
     Never invents labels and never touches non-matching curated bullets' text.
     """
     label = label.strip()
-    text = text.strip()
+    body, _existing_stamp = _strip_stamp(text.strip())
     if not label:
         raise ValueError("open thread label is empty")
-    if not text:
+    if not body:
         raise ValueError("open thread text is empty")
-    new_bullet = f"**[{label}]** {text}"
+    new_bullet = format_open_thread(label, body, updated)
 
     kept: list[str] = []
     for bullet in existing:

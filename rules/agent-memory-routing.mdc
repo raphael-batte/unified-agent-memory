@@ -21,13 +21,20 @@ Use `distill_path` from JSON. If `slug` is null: list `<memory_home>/chats/proje
 
 ## Step 1 — read distill (mandatory)
 
-Read the distill file → sections in order:
+The routing hint already prints `open_threads` — the **rolling 30d union of active
+directions across the whole hub** (every project file, newest first; your workspace
+sorts first but does not gate visibility). A thread recorded in another project still
+shows here. Match the user's topic to a `**[label]**` bullet first.
 
-1. **## Open threads** — active directions (multi-track). Match the user's topic to a
-   `**[label]**` bullet first; this is where parallel work lives.
+Then, if needed, read the resolved distill file → sections in order:
+
+1. **## Open threads** — active directions (multi-track), `**[label]** text · _upd DATE_`.
 2. **## Next step** — optional default pointer (follow if the chat opened with no topic).
 3. **## Recent** — last distilled chats.
 4. **## Decisions** — if architecture/deploy/cross-cutting.
+
+Full cross-hub view on demand:
+`python3 <plugin_root>/scripts/memory-pointer.py threads --days 30 --memory-home <hub>`
 
 If `_No forward pointer._` or `[?]` — drill the `[title](uuid)` link in that line (transcript tail only).
 
