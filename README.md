@@ -28,7 +28,7 @@ cd cursor-agent-memory
 bash scripts/install-local.sh
 ```
 
-Then **reload the Cursor window**. First open of a project creates the hub and anchor. In chat: **`@agent-memory`** → **set up agent memory**.
+Then **reload the Cursor window**. `install-local.sh` also links **`~/.cursor/rules/agent-memory-routing.mdc`** (`alwaysApply`) so every chat reads your project **Next step** before answering. First open of a project creates the hub and anchor. In chat: **`@agent-memory`** → **set up agent memory**.
 
 Optional manual init:
 
@@ -165,4 +165,4 @@ If you used symlink skills or global `~/.cursor/hooks.json` entries before the p
 
 Created by [raphaelbatte](https://github.com/raphael-batte) · [raphbatte.com](https://raphbatte.com)
 
-**Version:** 0.23.0 — see [VERSIONING.md](VERSIONING.md)
+**Version:** 0.24.0 — see [VERSIONING.md](VERSIONING.md)

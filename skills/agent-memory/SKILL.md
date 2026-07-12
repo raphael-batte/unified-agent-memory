@@ -2,15 +2,15 @@
 name: agent-memory
 description: >
   Single entry for Cursor agent memory. Set up with "set up agent memory"; sync with
-  "sync with agent memory". Routes layers by task — distill with ## Next step forward
-  pointer, global context, feedback. Secrets redaction on extract; verify-memory + gitleaks
+  "sync with agent memory". Routes layers by task — forward pointer in ## Open threads
+  (rolling 30d), global context, feedback. Secrets redaction on extract; verify-memory + gitleaks
   guard the hub (never store credentials). Hub outside plugin bundle. Do NOT load all
   layers every session.
 ---
 
 # Agent Memory
 
-**Version:** 0.23.0 — see [VERSIONING.md](VERSIONING.md)
+**Version:** 0.24.0 — see [VERSIONING.md](VERSIONING.md)
 
 **Full protocol:** [INSTRUCTIONS.md](../../INSTRUCTIONS.md) · **Overview:** [ARCHITECTURE.md](../../ARCHITECTURE.md)
 
@@ -95,7 +95,7 @@ Report: `Projects in GLOBAL_CONTEXT: N · Chat distills: M · Hub: $MEMORY_HOME 
 
 1. **`fill Me in GLOBAL_CONTEXT from our chats`**
 2. **Review `[bootstrap]` Decisions** — semantic merge from `merge-staging/`
-3. **Curate `## Next step`** if placeholder `[?]` / `_No forward pointer._`
+3. **Update `## Open threads`** via `memory-pointer.py add-thread` after sessions with outcomes
 
 Sentinel: `$MEMORY_HOME/.state/initialized` — set by `first-run-continue` or existing manifest on hook.
 
@@ -135,13 +135,13 @@ python3 "$PLUGIN_ROOT/scripts/sync-memory.py" \
 
 ### Report to user
 
-`Projects in GLOBAL_CONTEXT: N · Chat distills: M · Forward pointer: chats/projects/<slug>.md ## Next step · Ready to work.`
+`Projects in GLOBAL_CONTEXT: N · Chat distills: M · Forward pointer: memory-routing-hint open_threads · Ready to work.`
 
 Then **offer** (user confirms each):
 
 1. **`fill Me in GLOBAL_CONTEXT from our chats`**
 2. **Review `[bootstrap]` Decisions** — semantic merge from `merge-staging/`
-3. **Curate `## Next step`** if placeholder `[?]` / `_No forward pointer._`
+3. **Update `## Open threads`** via `memory-pointer.py add-thread` after sessions with outcomes
 
 ---
 
@@ -164,13 +164,18 @@ Use hits: open `path#section`; follow `drill` `[title](uuid)` for transcript tai
 
 ## Session start (routing)
 
+```bash
+python3 "$PLUGIN_ROOT/scripts/memory-routing-hint.py" --json .
+```
+
 | Order | Layer | Read |
 |-------|-------|------|
-| 1 | Distill | `$MEMORY_HOME/chats/projects/<slug>.md` → **## Next step** |
-| 2 (if unclear) | Global | `$MEMORY_HOME/context/GLOBAL_CONTEXT.md` |
+| 1 | Forward pointer | JSON `open_threads` (rolling 30d, cross-hub) |
+| 2 | Distill | `$MEMORY_HOME/chats/projects/<slug>.md` → **## Open threads** |
+| 3 (if unclear) | Global | `$MEMORY_HOME/context/GLOBAL_CONTEXT.md` |
 | Past decision / cross-chat | Search | `memory-search.py` then targeted Read |
 
-**If `## Next step` shows placeholder:** drill `[title](uuid)` in that line (transcript tail only).
+**`## Next step` is deprecated.** If a thread is vague — drill `[title](uuid)` in **## Recent**.
 
 ---
 
@@ -179,7 +184,7 @@ Use hits: open `path#section`; follow `drill` `[title](uuid)` for transcript tai
 | Question | Read |
 |----------|------|
 | Who / projects / rules | `context/GLOBAL_CONTEXT.md`, `conventions.md`, `infra.md` |
-| Where we stopped | `chats/projects/<slug>.md` → **## Next step** |
+| Where we stopped | `memory-routing-hint.py` → `open_threads`, or `chats/projects/<slug>.md` → **## Open threads** |
 | Past decisions | `memory-search.py` → `chats/projects/<slug>.md` or `chats/archive/<slug>-decisions.md` → `## Decisions` |
 | Wins / fails / style | `feedback/{wins,fails}.md`, `preferences.md` |
 
@@ -187,7 +192,7 @@ Use hits: open `path#section`; follow `drill` `[title](uuid)` for transcript tai
 
 ## Session end
 
-Hooks auto-distill and refresh **## Next step**. Agent updates only what changed.
+Hooks auto-distill Recent + `[extracted]` Decisions. Agent curates **## Open threads** (`add-thread`) after outcomes.
 
 Weekly: `python3 "$PLUGIN_ROOT/scripts/verify-memory.py" --memory-home "$MEMORY_HOME"`
 

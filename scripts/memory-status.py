@@ -26,6 +26,12 @@ PROJECTS_ROOT = Path.home() / ".cursor/projects"
 CURSOR_SKILLS = Path(
     os.environ.get("CURSOR_SKILLS", str(Path.home() / ".cursor/skills"))
 ).expanduser()
+CURSOR_PLUGINS_LOCAL = Path(
+    os.environ.get(
+        "CURSOR_PLUGINS_LOCAL",
+        str(Path.home() / ".cursor/plugins/local/agent-memory"),
+    )
+).expanduser()
 
 def read_text(path: Path) -> str:
     if not path.is_file():
@@ -224,12 +230,23 @@ def skills_stats(memory_home: Path, framework_root: Path | None) -> dict:
     linked_names = {c["name"] for c in cursor if c.get("ok")}
     unlinked = [n for n in personal_hub if n not in linked_names]
 
+    plugin_target = CURSOR_PLUGINS_LOCAL
+    plugin_ok = plugin_target.is_dir() and (
+        plugin_target / ".cursor-plugin" / "plugin.json"
+    ).is_file()
+    entry_skill_ok = (
+        plugin_target / "skills" / "agent-memory" / "SKILL.md"
+    ).is_file()
+    cursor_entry_ok = (CURSOR_SKILLS / "agent-memory" / "SKILL.md").is_file()
+
     return {
         "cursor": cursor,
         "hub_personal": personal_hub,
         "unlinked": unlinked,
         "framework_linked": sum(1 for c in cursor if c["kind"] == "framework" and c["ok"]),
         "personal_linked": sum(1 for c in cursor if c["kind"] == "personal" and c["ok"]),
+        "plugin_installed": plugin_ok and entry_skill_ok,
+        "cursor_skill_linked": cursor_entry_ok,
     }
 
 
@@ -350,6 +367,10 @@ def print_dashboard(data: dict) -> None:
 
     sk = data["skills"]
     print("── Cursor skills ──────────────────────────")
+    plugin_flag = "✓" if sk.get("plugin_installed") else "✗"
+    skill_flag = "✓" if sk.get("cursor_skill_linked") else "✗"
+    print(f"  Plugin install:    {plugin_flag}")
+    print(f"  @agent-memory:     {skill_flag}")
     print(
         f"  ~/.cursor/skills:  {len(sk['cursor'])} entries "
         f"({sk['framework_linked']} framework · {sk['personal_linked']} personal)"

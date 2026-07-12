@@ -6,6 +6,21 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-07-12
+
+### Changed
+
+- **`## Next step` deprecated** — boundary distill no longer auto-writes forward pointers; existing Next step bullets are passthrough-only; empty bodies get `_Deprecated — forward pointer lives in ## Open threads._`. Forward pointer = **`## Open threads`** (rolling 30d, cross-hub). `memory-pointer.py set` warns; use `add-thread`. Routing rule, SKILL, semantic-merge, pointer-curate prompt updated. `pointer_feedback` reads Open threads; `needs_enqueue` no longer queues Next step curation. Removed dead `maybe_log_pointer_clobbered` / `extract_next_step`; consolidated legacy Next-step tests
+
+### Added
+
+- **Rolling 30d cross-hub pointer** — `open_threads.collect_open_threads()` unions active directions across **all** project distills, filtered to a 30d window by each thread's tail-of-topic timestamp (`· _upd DATE_`), newest first; workspace slug sorts first but no longer gates visibility (a thread in `alpha-hub.md` surfaces from any workspace). Exposed via `memory-routing-hint.py` (`open_threads` in JSON) and `memory-pointer.py threads --days 30`. Undated legacy bullets fall back to the file's `_Last updated_`. Covered by `test_open_threads_rolling.py`
+- **Multi-track `## Open threads`** — `memory-pointer.py add-thread <project> <label> "…"` upserts one direction bullet per active track (`**[label]** text · _upd DATE_`), replace-by-label refreshes the timestamp, cap 7. `project_merge.upsert_open_thread` / `parse_open_thread` are the pure helpers; `memory-pointer.py show` also lists Open threads. Distill still never writes Open threads (curated-only). Covered by `test_open_threads_contract.py`, `test_multi_track_memory.py`, `test_routing_integration.py`
+- **Routing + semantic-merge docs** — read Open threads first for multi-topic; semantic-merge/example/SKILL updated with auto direction labels, cap 5–7, junk filter, session-end checklist
+- **Global routing rule** — `rules/agent-memory-routing.mdc` (`alwaysApply`); auto-linked to `~/.cursor/rules/` by `install-local.sh` and `init-memory.sh`
+- **`memory-routing-hint.py`** / **`resolve-workspace-slug.py`** — resolve workspace → distill slug without hardcoded project paths
+- Plugin validation requires `rules/agent-memory-routing.mdc`
+
 ## [0.23.0] - 2026-06-18
 
 ### Added

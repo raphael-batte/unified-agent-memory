@@ -13,7 +13,7 @@ One paragraph: what this project is about in your conversations.
 
 ## Next step
 
-- (auto-updated on distill from transcript tail — forward pointer for session start)
+- _Deprecated — forward pointer lives in ## Open threads._
 
 ## Preferences
 
@@ -21,7 +21,10 @@ One paragraph: what this project is about in your conversations.
 
 ## Open threads
 
-- 
+<!-- Forward pointer (rolling 30d). One bullet per direction, cap 5-7.
+     `· _upd DATE_` is the tail-of-topic timestamp (stamped by add-thread).
+     Upsert via: memory-pointer.py add-thread <project> <dir> "…" -->
+- **[example-dir]** Where this direction stopped · _upd YYYY-MM-DD_
 
 ## Recent
 
