@@ -83,6 +83,55 @@ def recent_line(extract: dict, today: str | None = None) -> str:
     return recent_bullet(extract, today or _today())
 
 
+OPEN_THREAD_LABEL = re.compile(r"^\*\*\[(?P<label>[^\]]+)\]\*\*\s*(?P<text>.*)$")
+MAX_OPEN_THREADS = 7
+
+
+def open_thread_label(bullet: str) -> str | None:
+    """Extract the ``[label]`` from a ``**[label]** …`` Open threads bullet."""
+    m = OPEN_THREAD_LABEL.match(bullet.strip())
+    return m.group("label").strip() if m else None
+
+
+def upsert_open_thread(
+    existing: list[str],
+    label: str,
+    text: str,
+    *,
+    cap: int = MAX_OPEN_THREADS,
+) -> list[str]:
+    """
+    Upsert a direction bullet into Open threads.
+
+    - Replaces the bullet whose ``[label]`` matches (case-insensitive), else appends.
+    - Preserves order of other bullets; updated/new entry moves to the end (most recent).
+    - Drops empty/placeholder bullets; caps to the last ``cap`` entries.
+    Never invents labels and never touches non-matching curated bullets' text.
+    """
+    label = label.strip()
+    text = text.strip()
+    if not label:
+        raise ValueError("open thread label is empty")
+    if not text:
+        raise ValueError("open thread text is empty")
+    new_bullet = f"**[{label}]** {text}"
+
+    kept: list[str] = []
+    for bullet in existing:
+        stripped = bullet.strip()
+        if not stripped:
+            continue
+        existing_label = open_thread_label(stripped)
+        if existing_label and existing_label.lower() == label.lower():
+            continue  # replaced by new_bullet appended below
+        kept.append(stripped)
+    kept.append(new_bullet)
+
+    if cap > 0 and len(kept) > cap:
+        kept = kept[len(kept) - cap :]
+    return kept
+
+
 def _is_meta_next_step(bullet: str) -> bool:
     return NO_POINTER_MARKER in bullet or bullet.strip().startswith(STALE_POINTER_PREFIX)
 

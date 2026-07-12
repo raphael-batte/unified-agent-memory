@@ -39,11 +39,7 @@ EOF
 
 framework_src() {
   local name="$1"
-  if [[ "$name" == "agent-memory" ]]; then
-    echo "$FRAMEWORK_ROOT"
-  else
-    echo "$FRAMEWORK_ROOT/skills/$name"
-  fi
+  echo "$FRAMEWORK_ROOT/skills/$name"
 }
 
 link_skill() {

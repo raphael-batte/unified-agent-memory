@@ -251,6 +251,30 @@ async function main() {
     addError(`${pluginName}: skills/ directory is missing.`);
   }
 
+  const rulesDir = path.join(pluginDir, "rules");
+  if (await pathExists(rulesDir)) {
+    const ruleFiles = (await walkFiles(rulesDir)).filter((filePath) =>
+      filePath.endsWith(".mdc"),
+    );
+    if (ruleFiles.length === 0) {
+      addError(`${pluginName}: rules/ must contain at least one .mdc file.`);
+    }
+    const routingRule = path.join(rulesDir, "agent-memory-routing.mdc");
+    if (!(await pathExists(routingRule))) {
+      addError(`${pluginName}: rules/agent-memory-routing.mdc is required.`);
+    } else {
+      const raw = await fs.readFile(routingRule, "utf8");
+      const fields = parseFrontmatter(raw);
+      if (!fields || fields.alwaysApply !== "true") {
+        addError(
+          `${pluginName}: agent-memory-routing.mdc must set alwaysApply: true.`,
+        );
+      }
+    }
+  } else {
+    addError(`${pluginName}: rules/ directory is missing.`);
+  }
+
   const hooksPath = path.join(pluginDir, "hooks", "hooks.json");
   const hooksJson = await readJsonFile(hooksPath, "Hooks config");
   if (hooksJson) {

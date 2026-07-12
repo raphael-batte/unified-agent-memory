@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Generate workspace Cursor rule with resolved MEMORY_HOME and workspace slug.
+# Optional: per-workspace Cursor rule with hardcoded slug (legacy).
+# Prefer global install: install-local.sh → ~/.cursor/rules/agent-memory-routing.mdc
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

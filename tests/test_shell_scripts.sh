@@ -29,9 +29,21 @@ assert 'workspaceOpen' in hooks['hooks']
 
 # simulate install-local (tmp only — never touch real ~/.cursor)
 PLUGIN_DST="$TMP/plugins/local/agent-memory"
+CURSOR_SKILLS_TMP="$TMP/cursor-skills"
+CURSOR_RULES_TMP="$TMP/cursor-rules"
 mkdir -p "$(dirname "$PLUGIN_DST")"
-ln -sfn "$ROOT" "$PLUGIN_DST"
+export CURSOR_PLUGINS_LOCAL="$TMP/plugins/local"
+export CURSOR_SKILLS="$CURSOR_SKILLS_TMP"
+export CURSOR_RULES="$CURSOR_RULES_TMP"
+bash "$ROOT/scripts/install-local.sh" >/dev/null
 test -f "$PLUGIN_DST/.cursor-plugin/plugin.json"
+test -f "$PLUGIN_DST/skills/agent-memory/SKILL.md"
+test -f "$PLUGIN_DST/rules/agent-memory-routing.mdc"
+test -f "$CURSOR_SKILLS_TMP/agent-memory/SKILL.md"
+test -L "$CURSOR_RULES_TMP/agent-memory-routing.mdc"
+# shellcheck source=../scripts/lib/plugin-install.sh
+source "$ROOT/scripts/lib/plugin-install.sh"
+verify_plugin_install "$ROOT" agent-memory
 
 # migrate
 bash "$ROOT/scripts/migrate-memory.sh" --from "$OLD_HUB" --to "$NEW_HUB"
@@ -80,6 +92,16 @@ mkdir -p "$EMPTY_PR"
 sync_hooks="$(python3 "$ROOT/scripts/sync-memory.py" --memory-home "$NEW_HUB" \
   --projects-root "$EMPTY_PR" 2>/dev/null || true)"
 echo "$sync_hooks" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['hooks'].get('reason')=='plugin_hooks_in_bundle'"
+
+chmod +x "$ROOT/scripts/sync-if-cursor-open.sh"
+sync_skip="$(bash "$ROOT/scripts/sync-if-cursor-open.sh" --dry-run 2>&1)"
+echo "$sync_skip" | grep -q "skip: Cursor not running"
+sync_force="$(AGENT_MEMORY_SYNC_FORCE=1 bash "$ROOT/scripts/sync-if-cursor-open.sh" --dry-run \
+  --force 2>&1 || true)"
+# empty hub → no pending
+sync_force_out="$(MEMORY_HOME="$NEW_HUB" AGENT_MEMORY_SYNC_FORCE=1 \
+  bash "$ROOT/scripts/sync-if-cursor-open.sh" --dry-run 2>&1)"
+echo "$sync_force_out" | grep -q "skip: no pending"
 
 chmod +x "$ROOT/scripts/weekly-verify.sh"
 weekly_out="$(bash "$ROOT/scripts/weekly-verify.sh" --dry-run 2>&1)"

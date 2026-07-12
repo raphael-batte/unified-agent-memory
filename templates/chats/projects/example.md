@@ -21,7 +21,9 @@ One paragraph: what this project is about in your conversations.
 
 ## Open threads
 
-- 
+<!-- Active directions (multi-track). One bullet per direction, cap 5-7.
+     Upsert via: memory-pointer.py add-thread <project> <dir> "…" -->
+- **[example-dir]** Where this direction stopped (deploy YYYY-MM-DD)
 
 ## Recent
 

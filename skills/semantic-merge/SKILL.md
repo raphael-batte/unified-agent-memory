@@ -21,8 +21,13 @@ Hub staging → curated `chats/projects/<slug>.md`.
 
 1. Read staging — **Topic segments**, **Decision candidates**, Raw candidates, Rolling summary; map-reduce windows only if no segments.
 2. Update target `## Decisions` — write `[curated]` bullets; paraphrase durable facts only; preserve language. Leave `[extracted]` to hooks/`--apply`.
-3. If pointer placeholder — one curated bullet under `## Next step` (pointer-curate-prompt).
-4. `verify-memory.py`; never paste secrets.
+3. Update `## Open threads` (multi-track) — one `**[label]**` bullet per active direction; upsert by label, cap 5–7. Prefer `memory-pointer.py add-thread <project> <dir> "…"`.
+4. If pointer placeholder — one curated bullet under `## Next step` (pointer-curate-prompt). Optional when Open threads already carries the active state.
+5. `verify-memory.py`; never paste secrets.
+
+## Session end
+
+Before ending a session with an outcome: refresh `## Open threads` for each direction you touched, add the `## Recent` outcome line, then run this semantic merge over staging.
 
 ## Templates
 
