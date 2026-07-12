@@ -45,16 +45,6 @@ class TestResolveWorkspaceSlug(unittest.TestCase):
             self.assertEqual(slug, "new-repo")
             self.assertEqual(reason, "basename_fallback")
 
-    def test_extract_next_step(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            p = Path(tmp) / "proj.md"
-            p.write_text(
-                "## Next step\n\nShip feature X.\n\n## Recent\n\n- chat\n",
-                encoding="utf-8",
-            )
-            body = wsr.extract_next_step(p)
-            self.assertIn("Ship feature X", body or "")
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,7 @@
-"""Tests for scripts/memory-pointer.py"""
+"""Tests for scripts/memory-pointer.py (forward pointer = Open threads)."""
 
 from __future__ import annotations
 
-import json
 import sys
 import tempfile
 import unittest
@@ -14,32 +13,30 @@ mp = load_script_module("memory_pointer", "memory-pointer.py")
 
 
 class TestMemoryPointer(unittest.TestCase):
-    def test_set_curated_pointer(self) -> None:
+    def test_add_thread_writes_open_threads(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)
             minimal_hub(hub, projects=0)
             project = hub / "chats" / "projects" / "app.md"
             project.parent.mkdir(parents=True, exist_ok=True)
-            project.write_text("## Next step\n\n\n## Recent\n\n", encoding="utf-8")
-            result = mp.set_curated_pointer(
+            result = mp.add_open_thread(
                 project,
-                "Run smoke tests after fixture import",
+                "widget-ui",
+                "Smoke footer on test",
                 memory_home=hub,
             )
             text = project.read_text(encoding="utf-8")
-            self.assertTrue(result["curated"])
-            self.assertIn("[curated]", text)
-            self.assertIn("smoke tests", text)
+            self.assertEqual(result["count"], 1)
+            self.assertIn("## Open threads", text)
+            self.assertIn("**[widget-ui]** Smoke footer on test", text)
 
-    def test_show_curated(self) -> None:
+    def test_show_lists_open_threads(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            hub = Path(tmp)
-            project = hub / "chats" / "projects" / "app.md"
-            project.parent.mkdir(parents=True, exist_ok=True)
-            mp.set_curated_pointer(project, "Ship v0.15 pointer provenance", memory_home=None)
-            pointer, curated = mp.read_pointer_bullet(project)
-            self.assertTrue(curated)
-            self.assertIn("v0.15", pointer or "")
+            project = Path(tmp) / "app.md"
+            mp.add_open_thread(project, "qa", "Run smoke tests", memory_home=None)
+            threads = mp.read_open_threads(project)
+            self.assertEqual(len(threads), 1)
+            self.assertIn("**[qa]**", threads[0])
 
 
 if __name__ == "__main__":

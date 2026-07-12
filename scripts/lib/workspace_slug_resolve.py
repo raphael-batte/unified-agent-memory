@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from lib.transcript_cursor import safe_path_component, workspace_slug
@@ -62,16 +61,3 @@ def resolve_slug(
     if fallback:
         return fallback[0], "basename_fallback"
     return None, "unresolved"
-
-
-def extract_next_step(distill_path: Path, max_chars: int = 400) -> str | None:
-    if not distill_path.is_file():
-        return None
-    text = distill_path.read_text(encoding="utf-8", errors="replace")
-    m = re.search(r"^## Next step\s*\n(.*?)(?=\n## |\Z)", text, re.MULTILINE | re.DOTALL)
-    if not m:
-        return None
-    body = m.group(1).strip()
-    if len(body) > max_chars:
-        return body[: max_chars - 3] + "..."
-    return body

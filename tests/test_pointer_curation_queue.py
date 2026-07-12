@@ -14,6 +14,10 @@ from lib import pointer_curation_queue as pcq  # noqa: E402
 
 
 class TestPointerQueue(unittest.TestCase):
+    def test_needs_enqueue_always_false(self) -> None:
+        self.assertEqual(pcq.needs_enqueue({"next_step_kind": "placeholder_empty"}), (False, ""))
+        self.assertEqual(pcq.needs_enqueue(None), (False, ""))
+
     def test_enqueue_and_session_message(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)
@@ -26,7 +30,7 @@ class TestPointerQueue(unittest.TestCase):
             )
             msg = pcq.session_start_user_message(hub, ["/tmp/workspaces/foo"])
             self.assertIsNotNone(msg)
-            self.assertIn("foo.md", msg or "")
+            self.assertIn("Open threads", msg or "")
             self.assertTrue(pcq.mark_done(hub, "abc"))
             self.assertIsNone(pcq.session_start_user_message(hub, ["/tmp/workspaces/foo"]))
 

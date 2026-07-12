@@ -6,6 +6,12 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-07-12
+
+### Changed
+
+- **`## Next step` deprecated** — boundary distill no longer auto-writes forward pointers; existing Next step bullets are passthrough-only; empty bodies get `_Deprecated — forward pointer lives in ## Open threads._`. Forward pointer = **`## Open threads`** (rolling 30d, cross-hub). `memory-pointer.py set` warns; use `add-thread`. Routing rule, SKILL, semantic-merge, pointer-curate prompt updated. `pointer_feedback` reads Open threads; `needs_enqueue` no longer queues Next step curation. Removed dead `maybe_log_pointer_clobbered` / `extract_next_step`; consolidated legacy Next-step tests
+
 ### Added
 
 - **Rolling 30d cross-hub pointer** — `open_threads.collect_open_threads()` unions active directions across **all** project distills, filtered to a 30d window by each thread's tail-of-topic timestamp (`· _upd DATE_`), newest first; workspace slug sorts first but no longer gates visibility (a thread in `alpha-hub.md` surfaces from any workspace). Exposed via `memory-routing-hint.py` (`open_threads` in JSON) and `memory-pointer.py threads --days 30`. Undated legacy bullets fall back to the file's `_Last updated_`. Covered by `test_open_threads_rolling.py`

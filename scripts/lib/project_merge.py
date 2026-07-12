@@ -13,24 +13,11 @@ from lib.defaults import (
 )
 from lib.transcript_cursor import safe_path_component
 from lib.distill_links import enrich_extract, format_chat_markdown_link, recent_bullet
-from lib.forward_pointer import (
-    NO_POINTER_MARKER,
-    STALE_POINTER_PREFIX,
-    extract_forward_pointer_result,
-)
+from lib.forward_pointer import NO_POINTER_MARKER, STALE_POINTER_PREFIX
 from lib.message_importance import mechanical_bullets
 from lib.novelty import dedupe_bullets, is_novel, normalize_snippet
 from lib.secrets_guard import scan_file
-from lib.pointer_metrics import maybe_log_pointer_clobbered
-from lib.pointer_provenance import (
-    PROVENANCE_AUTO,
-    PROVENANCE_CURATED,
-    find_curated_next_step,
-    format_curated_next_step,
-    is_strong_pointer_source,
-    pointer_provenance_class,
-    watermark_changed,
-)
+from lib.pointer_provenance import format_next_step_deprecated
 from lib.markdown_sections import bullets as _bullets
 from lib.markdown_sections import parse_sections as _parse_sections
 from lib.timestamps import now_iso
@@ -178,6 +165,13 @@ def _previous_real_next_step(bullets: list[str]) -> str | None:
         if text:
             return text
     return None
+
+
+def preserve_next_step_deprecated(sections: dict) -> None:
+    """## Next step is deprecated; distill never auto-writes (Open threads = pointer)."""
+    if _bullets(sections.get("Next step", "")):
+        return
+    sections["Next step"] = format_next_step_deprecated()
 
 
 def format_next_step_line(
@@ -552,46 +546,10 @@ def apply_extract_to_project(
             decisions_added = len(seeds)
 
     existing_next_bullets = _bullets(sections.get("Next step", ""))
-    curated_text = find_curated_next_step(existing_next_bullets)
-    prev_next_step = _previous_real_next_step(existing_next_bullets)
-    pointer_result = extract_forward_pointer_result(extract, memory_home=memory_home)
-    pointer_candidate = pointer_result.text
-    pointer_preserved_curated = False
-    pointer_provenance = PROVENANCE_AUTO
-
-    if curated_text:
-        strong = is_strong_pointer_source(pointer_result.source)
-        wm_changed = watermark_changed(extract, manifest_entry)
-        if strong and wm_changed and pointer_candidate:
-            next_body, next_kind = format_next_step_line(
-                extract, pointer_candidate, sections.get("Next step", "")
-            )
-            pointer_provenance = pointer_provenance_class(pointer_result.source)
-        else:
-            next_body = sections.get("Next step", "").strip()
-            if not next_body:
-                next_body = format_curated_next_step(curated_text)
-            next_kind = "curated_preserved"
-            pointer_preserved_curated = True
-            pointer_provenance = PROVENANCE_CURATED
-    else:
-        next_body, next_kind = format_next_step_line(
-            extract, pointer_candidate, sections.get("Next step", "")
-        )
-        if next_kind == "extracted":
-            pointer_provenance = pointer_provenance_class(pointer_result.source)
-
-    maybe_log_pointer_clobbered(
-        memory_home,
-        workspace_slug=str(extract.get("workspace_slug") or project_path.stem),
-        new_chat_id=str(extract.get("uuid") or ""),
-        existing_recent=existing_recent,
-        prev_next_step=prev_next_step,
-        next_kind=next_kind,
-    )
-    sections["Next step"] = next_body
-    next_step_updated = next_kind != "curated_preserved"
-    next_step_placeholder = next_kind not in ("extracted", "curated_preserved")
+    preserve_next_step_deprecated(sections)
+    next_kind = "deprecated_passthrough"
+    next_step_updated = False
+    next_step_placeholder = not bool(existing_next_bullets)
 
     merged = _join_sections(preamble, sections)
 
@@ -617,11 +575,11 @@ def apply_extract_to_project(
         "next_step_updated": next_step_updated,
         "next_step_kind": next_kind,
         "next_step_placeholder": next_step_placeholder,
-        "pointer_confidence": pointer_result.confidence,
-        "pointer_source": pointer_result.source,
-        "pointer_provenance": pointer_provenance,
-        "pointer_preserved_curated": pointer_preserved_curated,
-        "pointer_candidate": pointer_candidate if pointer_preserved_curated else None,
+        "pointer_confidence": 0.0,
+        "pointer_source": "deprecated",
+        "pointer_provenance": "deprecated",
+        "pointer_preserved_curated": False,
+        "pointer_candidate": None,
         "recent_lines": min(len(recent_items), max_recent),
         "lines": len(merged.splitlines()),
         "over_limit": len(merged.splitlines()) > MAX_LAYER_FILE_LINES,
