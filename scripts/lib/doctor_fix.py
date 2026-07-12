@@ -42,8 +42,8 @@ def run_fix(
         actions.append(f"would set anchor + hub → plugin_root={fw_str}")
 
     actions.append(
-        "if using plugin: remove legacy ~/.cursor/hooks.json agent-memory entries "
-        "and ~/.cursor/skills/agent-memory symlink to avoid double distill"
+        "plugin install: bash scripts/install-local.sh links bundle + ~/.cursor/skills/; "
+        "remove legacy agent-memory entries from ~/.cursor/hooks.json if present"
     )
 
     legacy_link = SCRIPT_DIR / "link-cursor-skills.sh"

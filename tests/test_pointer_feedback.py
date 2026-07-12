@@ -29,7 +29,9 @@ class TestPointerFeedback(unittest.TestCase):
             project = hub / "chats" / "projects" / "app.md"
             project.parent.mkdir(parents=True, exist_ok=True)
             project.write_text(
-                "## Next step\n\n- Run smoke tests on staging\n\n## Recent\n\n",
+                "## Open threads\n\n"
+                "- **[qa]** Run smoke tests on staging · _upd 2026-06-08_\n\n"
+                "## Recent\n\n",
                 encoding="utf-8",
             )
             rows = log_session_start_pointer_feedback(hub, {"app"})
@@ -38,13 +40,13 @@ class TestPointerFeedback(unittest.TestCase):
             metrics = read_metrics(hub)
             self.assertTrue(any(r.get("event") == "pointer_feedback" for r in metrics))
 
-    def test_logs_miss_for_placeholder(self) -> None:
+    def test_logs_miss_without_open_threads(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)
             project = hub / "chats" / "projects" / "app.md"
             project.parent.mkdir(parents=True, exist_ok=True)
             project.write_text(
-                "## Next step\n\n- _No forward pointer._\n\n",
+                "## Open threads\n\n\n",
                 encoding="utf-8",
             )
             rows = log_session_start_pointer_feedback(hub, {"app"})
@@ -110,7 +112,8 @@ class TestPointerFeedback(unittest.TestCase):
             project = hub / "chats" / "projects" / "app.md"
             project.parent.mkdir(parents=True, exist_ok=True)
             project.write_text(
-                "## Next step\n\n- Run smoke tests on staging\n\n",
+                "## Open threads\n\n"
+                "- **[qa]** Run smoke tests on staging · _upd 2026-06-08_\n\n",
                 encoding="utf-8",
             )
             manifest = hub / "chats" / "manifest.json"

@@ -6,6 +6,9 @@ import re
 from typing import Any
 
 CURATED_POINTER_PREFIX = "[curated]"
+NEXT_STEP_DEPRECATED_MARKER = (
+    "_Deprecated — forward pointer lives in ## Open threads._"
+)
 STRONG_POINTER_SOURCES = frozenset({"user_commitment", "todo_state"})
 AGENT_LIVE_POINTER_SOURCE = "agent_live"
 PROVENANCE_CURATED = "curated"
@@ -62,6 +65,14 @@ def format_curated_next_step(text: str) -> str:
     if is_curated_next_step(body):
         return f"- {body}"
     return f"- {CURATED_POINTER_PREFIX} {body}"
+
+
+def is_next_step_deprecated(bullet: str) -> bool:
+    return NEXT_STEP_DEPRECATED_MARKER in bullet
+
+
+def format_next_step_deprecated() -> str:
+    return f"- {NEXT_STEP_DEPRECATED_MARKER}"
 
 
 def watermark_changed(extract: dict, manifest_entry: dict[str, Any] | None) -> bool:

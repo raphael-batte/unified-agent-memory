@@ -1,0 +1,64 @@
+---
+description: Agent memory — read project distill pointer before answering (global)
+alwaysApply: true
+---
+
+# Agent memory — global routing
+
+Apply **before every answer**, including off-topic questions in a new chat.
+
+## Step 0 — routing hint (one command)
+
+1. Read hub anchor `~/.cursor/agent-memory/config.json` → `memory_home` and `plugin_root`.
+   Fallback plugin: `~/.cursor/plugins/local/agent-memory`.
+2. From the **current workspace** root:
+
+```bash
+python3 "<plugin_root>/scripts/memory-routing-hint.py" --json .
+```
+
+Use `distill_path` from JSON. If `slug` is null: list `<memory_home>/chats/projects/*.md` (skip `example.md`) or invoke `@agent-memory`.
+
+## Step 1 — forward pointer (mandatory)
+
+The routing hint prints `open_threads` — the **rolling 30d union of active
+directions across the whole hub** (every project file, newest first; your workspace
+sorts first but does not gate visibility). A thread recorded in another project still
+shows here. **This is the forward pointer.**
+
+Match the user's topic to a `**[label]**` bullet first.
+
+Then, if needed, read the resolved distill file → sections in order:
+
+1. **## Open threads** — where you stopped per direction, `**[label]** text · _upd DATE_`.
+2. **## Recent** — last distilled chats (drill transcript if thread is stale).
+3. **## Decisions** — durable constraints / architecture.
+
+**`## Next step` is deprecated** — ignore auto placeholders; do not write there.
+
+Full cross-hub view on demand:
+`python3 <plugin_root>/scripts/memory-pointer.py threads --days 30 --memory-home <hub>`
+
+If a thread is vague — drill the `[title](uuid)` link in **## Recent** (transcript tail).
+
+## Step 2 — off-topic or new subject
+
+If the user question matches **no** Open threads bullet:
+
+- Search hub first:
+  `python3 <plugin_root>/scripts/memory-search.py "<keywords>" --memory-home <hub> --top 5`
+- Say briefly: **Open thread:** … **Your question:** …
+- Then answer the question.
+
+To record where a direction stopped (curated, not auto-distill):
+`python3 <plugin_root>/scripts/memory-pointer.py add-thread <project> <dir> "on X we stopped at …"`
+
+## Step 3 — deeper routing
+
+| Need | Action |
+|------|--------|
+| Setup / sync / doctor | `@agent-memory` → set up / sync with agent memory |
+| Curate Decisions | `@semantic-merge` |
+| Cross-project rules | `<memory_home>/context/GLOBAL_CONTEXT.md` |
+
+Hub paths are **local to this machine** — never commit hub content to git.

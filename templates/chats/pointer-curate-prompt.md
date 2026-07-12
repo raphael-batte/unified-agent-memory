@@ -1,30 +1,37 @@
 # Pointer curation — agent prompt (session end)
 
-Use when boundary distill wrote `## Next step` with `_No forward pointer._`, `[?]`, or sessionEnd hook says low-confidence pointer.
+Use when a session had a clear outcome but **## Open threads** was not updated.
 
 ## Inputs
 
 - Target: `$MEMORY_HOME/chats/projects/<slug>.md` (or path from hook `project_rel`)
 - Staging: latest `chats/merge-staging/<slug>-*.md`
+- Rolling view: `memory-pointer.py threads --days 30`
 - Optional: chat link in `## Recent` — `[title](uuid)` for transcript tail
 
 ## Task
 
-1. Read staging tail + `## Window summaries` / `## Assistant snippets` if present.
-2. Read current `## Next step` — if placeholder, replace with **one** actionable bullet.
-3. Prefer `memory-pointer.py set <project> "…"` or bullet prefix `[curated]` so auto-distill does not overwrite.
-4. Write a single line the user would recognize as «what we do next» — imperative, ≤200 chars.
-5. Preserve chat language (RU/EN); no secrets; no raw regex dump.
-6. If truly unclear, keep `[?]` but add concrete drill: which file/command to open first.
+1. Read staging tail + topic segments / outcome from the session.
+2. For **each active direction touched** (≤30d): upsert one Open threads bullet.
+3. Prefer CLI:
+   `memory-pointer.py add-thread <project> <label> "where we stopped · outcome"`
+4. Label = auto (segment preview / path / workspace slug), not a hardcoded project list.
+5. Cap 5–7 bullets per project file; close finished directions (remove bullet).
+6. Preserve chat language (RU/EN); no secrets.
 
 ## Quality bar
 
 | Bad | Good |
 |-----|------|
-| "Continue working on the project" | "Run `bash tests/smoke.sh` after fixture import; fix first failing URL test" |
-| Verbatim last user question | Paraphrased commitment: "Ship v0.10.1 baseline alerts, then push tag" |
+| "Continue working on the project" | `**[sdm-ui]** Footer deploy OK on test — smoke mobile accordion` |
+| Verbatim last user question | Paraphrased state: `**[agent-memory]** PR #1 merged; add-thread ops on hub` |
+
+## Do not use
+
+- **`memory-pointer.py set`** — deprecated (`## Next step` is retired).
+- Auto-distill does not write Open threads — curation is agent/CLI only.
 
 ## After save
 
 - `verify-memory.py --memory-home $MEMORY_HOME`
-- Do **not** overwrite `## Decisions` here — use semantic-merge for that.
+- Decisions → semantic-merge, not here.

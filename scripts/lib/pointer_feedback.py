@@ -1,4 +1,4 @@
-"""Session-start pointer feedback — disk pointer + session adherence."""
+"""Session-start pointer feedback — Open threads adherence."""
 
 from __future__ import annotations
 
@@ -8,14 +8,11 @@ from typing import Any
 
 from lib.chats_manifest import load_manifest, processed_by_id
 from lib.defaults import DOMAIN_STOPWORDS, GENERIC_MESSAGE_START
-from lib.forward_pointer import NO_POINTER_MARKER, STALE_POINTER_PREFIX
 from lib.pointer_metrics import log_pointer_feedback
-from lib.pointer_provenance import is_curated_next_step, strip_curated_marker
-from lib.project_merge import _bullets, _parse_sections
+from lib.project_merge import _bullets, _parse_sections, parse_open_thread
 from lib.transcript_cursor import safe_path_component
 from lib.transcript_parse import parse_transcript
 
-_PLACEHOLDER_RE = re.compile(r"^\[\?\]")
 _TOKEN_RE = re.compile(r"[\w\u0400-\u04ff]+", re.UNICODE)
 def _project_path(memory_home: Path, slug: str) -> Path:
     safe = safe_path_component(slug, fallback="project")
@@ -23,18 +20,21 @@ def _project_path(memory_home: Path, slug: str) -> Path:
 
 
 def _pointer_from_project(project_path: Path) -> tuple[str | None, bool]:
+    """Forward pointer = ## Open threads (multi-track, curated-only)."""
     if not project_path.is_file():
         return None, False
     _preamble, sections = _parse_sections(
         project_path.read_text(encoding="utf-8", errors="replace")
     )
-    for bullet in _bullets(sections.get("Next step", "")):
-        curated = is_curated_next_step(bullet)
-        text = strip_curated_marker(bullet)
-        if NO_POINTER_MARKER in bullet or _PLACEHOLDER_RE.match(bullet.strip()):
-            return None, curated
-        if text and not bullet.strip().startswith(STALE_POINTER_PREFIX):
-            return text, curated
+    parts: list[str] = []
+    for bullet in _bullets(sections.get("Open threads", "")):
+        parsed = parse_open_thread(bullet)
+        if parsed and parsed.get("text"):
+            label = parsed.get("label") or ""
+            text = parsed["text"]
+            parts.append(f"{label}: {text}" if label else text)
+    if parts:
+        return " | ".join(parts), True
     return None, False
 
 

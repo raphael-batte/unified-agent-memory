@@ -114,3 +114,9 @@ echo "Done."
 echo "  Hub:    $MEMORY_HOME"
 echo "  Anchor: $ANCHOR_FILE"
 echo "  Sync:   say 'sync with agent memory' in Cursor"
+
+# shellcheck source=lib/plugin-install.sh
+source "$SCRIPT_DIR/lib/plugin-install.sh"
+if link_global_routing_rules "$PLUGIN_ROOT"; then
+  echo "  Rule:   $(cursor_rules_dir)/$(global_routing_rule_name)"
+fi

@@ -18,8 +18,18 @@ Use after `distill-merge.py` wrote `chats/merge-staging/<slug>-*.md`.
 6. Read target `## Decisions` — keep existing `[curated]` / `[bootstrap]`; do not delete mechanical `[extracted]` (hooks manage cap + archive).
 7. Write **new** `[curated]` bullets only where a candidate expresses a durable decision, preference, or constraint.
 8. Paraphrase; merge duplicates; drop noise, commands, one-off debug, credentials.
-9. Update `## Open threads` if staging lists unresolved items.
-10. If `## Next step` is placeholder (`_No forward pointer._` / `[?]`) — curate one line using `pointer-curate-prompt.md`; then `pointer-curation-queue` clears on save.
+9. Update `## Open threads` — **primary multi-track state** (rolling 30d). One bullet per
+   active direction: `- **[label]** where it stopped · _upd YYYY-MM-DD_`.
+   - `label` is auto: topic-segment slug / path in the message / workspace slug — never a
+     hardcoded project enum.
+   - `· _upd DATE_` is the **tail-of-topic timestamp** = last activity of that direction;
+     the CLI stamps it and refreshes on re-touch. It drives the 30d window + eviction.
+   - Upsert by label (replace the matching bullet, don't stack duplicates); cap 5–7,
+     drop directions with no activity ~30d.
+   - Junk filter: skip system prompts, `<mcp_meta_tools>`, bullets < 40 chars, and dupes.
+   - Prefer the CLI so formatting/cap stay consistent:
+     `memory-pointer.py add-thread <project> <dir> "…"`.
+10. **`## Next step` is deprecated** — do not curate; forward pointer = Open threads only.
 11. Do **not** paste raw candidate text into Decisions; do not duplicate bullets already in `chats/archive/<slug>-decisions.md`.
 12. Run `verify-memory.py`; hooks already updated Recent + `[extracted]` — do not `--apply` over curated Decisions.
 

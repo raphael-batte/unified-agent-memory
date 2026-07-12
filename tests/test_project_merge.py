@@ -87,7 +87,8 @@ class TestProjectMerge(unittest.TestCase):
             self.assertEqual(result["decisions_added"], 0)
             self.assertNotIn("[bootstrap]", path.read_text(encoding="utf-8"))
 
-    def test_apply_sets_next_step_from_extract(self) -> None:
+    def test_next_step_deprecated_contract(self) -> None:
+        """Empty → deprecation stamp; existing → passthrough; extract pointer → ignored."""
         with tempfile.TemporaryDirectory() as tmp:
             jsonl = Path(tmp) / "c.jsonl"
             jsonl.write_text(
@@ -103,122 +104,25 @@ class TestProjectMerge(unittest.TestCase):
                 "strategy": "tail",
                 "source_path": str(jsonl),
             }
-            path = Path(tmp) / "app.md"
-            path.write_text("## Next step\n\n\n## Recent\n\n", encoding="utf-8")
-            pm.apply_extract_to_project(path, extract, today="2026-06-07")
-            self.assertIn("device QA", path.read_text(encoding="utf-8"))
+            empty_path = Path(tmp) / "empty.md"
+            empty_path.write_text("## Next step\n\n\n## Recent\n\n", encoding="utf-8")
+            result = pm.apply_extract_to_project(empty_path, extract, today="2026-06-07")
+            empty_text = empty_path.read_text(encoding="utf-8")
+            self.assertNotIn("device QA", empty_text)
+            self.assertIn("forward pointer lives in ## Open threads", empty_text)
+            self.assertEqual(result["next_step_kind"], "deprecated_passthrough")
+            self.assertFalse(result["next_step_updated"])
 
-    def test_apply_writes_no_pointer_placeholder(self) -> None:
-        extract = {
-            "uuid": "abcd-1234-uuid-full",
-            "workspace_slug": "app",
-            "first_query": "short",
-            "user_messages": ["hi"],
-            "user_message_count": 1,
-            "strategy": "tail",
-            "transcript_available": False,
-        }
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "app.md"
-            path.write_text("## Next step\n\n\n## Recent\n\n", encoding="utf-8")
-            result = pm.apply_extract_to_project(path, extract, today="2026-06-07")
-            text = path.read_text(encoding="utf-8")
-            self.assertTrue(result["next_step_placeholder"])
-            self.assertEqual(result["next_step_kind"], "placeholder_empty")
-            self.assertIn("_No forward pointer._", text)
-            self.assertIn("abcd-123", text)
-
-    def test_apply_writes_stale_placeholder(self) -> None:
-        extract = {
-            "uuid": "stale-uuid-1234",
-            "workspace_slug": "app",
-            "first_query": "q",
-            "user_messages": ["ok"],
-            "user_message_count": 1,
-            "strategy": "tail",
-            "transcript_available": False,
-        }
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "app.md"
-            path.write_text(
-                "## Next step\n\n- Deploy to production after SSL fix\n\n## Recent\n\n",
+            legacy_path = Path(tmp) / "legacy.md"
+            legacy_path.write_text(
+                "## Next step\n\n- [curated] Keep this legacy line\n\n## Recent\n\n",
                 encoding="utf-8",
             )
-            result = pm.apply_extract_to_project(path, extract, today="2026-06-07")
-            text = path.read_text(encoding="utf-8")
-            self.assertTrue(result["next_step_placeholder"])
-            self.assertEqual(result["next_step_kind"], "placeholder_stale")
-            self.assertIn("[?]", text)
-            self.assertIn("Deploy to production", text)
-
-    def test_curated_next_step_preserved_on_weak_auto(self) -> None:
-        extract = {
-            "uuid": "new-chat-uuid",
-            "workspace_slug": "app",
-            "user_messages": ["hi"],
-            "user_message_count": 1,
-            "strategy": "tail",
-            "watermark_user_count": 1,
-            "watermark_tail_hash": "abc",
-        }
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "app.md"
-            path.write_text(
-                "## Next step\n\n- [curated] Run full smoke suite before release\n\n"
-                "## Recent\n\n- [old](aaaa-bbbb-cccc-dddd-eeee-ffff-0000) 2026-06-01\n",
-                encoding="utf-8",
-            )
-            result = pm.apply_extract_to_project(
-                path,
-                extract,
-                today="2026-06-08",
-                manifest_entry={
-                    "watermark_user_count": 1,
-                    "watermark_tail_hash": "abc",
-                },
-            )
-            text = path.read_text(encoding="utf-8")
-            self.assertTrue(result["pointer_preserved_curated"])
-            self.assertIn("[curated]", text)
-            self.assertIn("smoke suite", text)
-
-    def test_curated_overwritten_by_live_signal_and_watermark(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            jsonl = Path(tmp) / "c.jsonl"
-            jsonl.write_text(
-                '{"role":"user","message":{"content":[{"type":"text",'
-                '"text":"<user_query>okay then deploy security patch to staging</user_query>"}]}}\n',
-                encoding="utf-8",
-            )
-            extract = {
-                "uuid": "x",
-                "workspace_slug": "app",
-                "user_messages": [],
-                "user_message_count": 5,
-                "strategy": "tail",
-                "source_path": str(jsonl),
-                "watermark_user_count": 5,
-                "watermark_tail_hash": "newhash",
-            }
-            path = Path(tmp) / "app.md"
-            path.write_text(
-                "## Next step\n\n- [curated] Old curated step here for test\n\n## Recent\n\n",
-                encoding="utf-8",
-            )
-            result = pm.apply_extract_to_project(
-                path,
-                extract,
-                today="2026-06-08",
-                manifest_entry={
-                    "watermark_user_count": 1,
-                    "watermark_tail_hash": "oldhash",
-                },
-            )
-            text = path.read_text(encoding="utf-8")
-            self.assertFalse(result["pointer_preserved_curated"])
-            self.assertEqual(result["next_step_kind"], "extracted")
-            self.assertIn("security patch", text)
-            self.assertNotIn("[curated]", text)
+            pm.apply_extract_to_project(legacy_path, extract, today="2026-06-07")
+            legacy_text = legacy_path.read_text(encoding="utf-8")
+            self.assertIn("[curated] Keep this legacy line", legacy_text)
+            self.assertNotIn("device QA", legacy_text)
+            self.assertNotIn("[?]", legacy_text)
 
     def test_apply_writes_summary_bullets_when_empty(self) -> None:
         extract = {
