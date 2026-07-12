@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 # Distill
@@ -54,7 +55,7 @@ SYSTEM_SINGLE_LINE_TAGS: tuple[str, ...] = (
     "timestamp",
 )
 
-# Lang-agnostic junk markers for decision_extract (format/log noise)
+# Lang-agnostic junk markers for decision_extract + live compact (format/log noise)
 DECISION_JUNK_MARKERS: tuple[str, ...] = (
     "packages in scope",
     "warnings:",
@@ -66,10 +67,26 @@ DECISION_JUNK_MARKERS: tuple[str, ...] = (
     '"lighthouseversion"',
     "if the available mcp tools",
     "<tool_use",
+    "<mcp_meta_tools>",
+    "getmcptools",
+    "briefly inform the user",
     "press release:",
     "jqmigrate:",
     "grammarly.js",
 )
+DECISION_JUNK_MIN_LEN = 40
+DECISION_MIN_CONTENT_LEN = 16
+DECISION_FUZZY_JACCARD_THRESHOLD = 0.8
+
+
+def decision_fuzzy_dedup_enabled() -> bool:
+    return os.environ.get("DECISION_FUZZY_DEDUP", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
 ROLLING_COMPACTION_ENQUEUE = 15
 ROLLING_COMPACTION_HARD_CAP = 25
 ROLLING_SUMMARY_MAX = 12

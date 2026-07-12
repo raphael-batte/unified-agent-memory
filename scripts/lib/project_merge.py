@@ -15,7 +15,13 @@ from lib.transcript_cursor import safe_path_component
 from lib.distill_links import enrich_extract, format_chat_markdown_link, recent_bullet
 from lib.forward_pointer import NO_POINTER_MARKER, STALE_POINTER_PREFIX
 from lib.message_importance import mechanical_bullets
-from lib.novelty import dedupe_bullets, is_novel, normalize_snippet
+from lib.novelty import (
+    dedupe_bullets,
+    dedupe_decision_bullets,
+    is_decision_junk,
+    is_novel,
+    normalize_decision_content,
+)
 from lib.secrets_guard import scan_file
 from lib.pointer_provenance import format_next_step_deprecated
 from lib.markdown_sections import bullets as _bullets
@@ -324,14 +330,14 @@ def archive_evicted_decisions(
         )
 
     existing_deduped = dedupe_bullets(existing)
-    prior_norms = [normalize_snippet(b) for b in existing_deduped]
+    prior_norms = [normalize_decision_content(b) for b in existing_deduped]
     novel_lines: list[str] = []
     for line in formatted:
         text = line.lstrip("- ").strip()
         if not text or not is_novel(text, prior_norms):
             continue
         novel_lines.append(line)
-        prior_norms.append(normalize_snippet(text))
+        prior_norms.append(normalize_decision_content(text))
 
     merged = dedupe_bullets(existing_deduped + novel_lines)
     if path.is_file() and not novel_lines and len(merged) == len(existing):
@@ -356,6 +362,45 @@ def compact_archive_decisions(memory_home: Path, slug: str) -> int:
         return 0
     _write_archive_decisions(path, slug, merged)
     return len(existing) - len(merged)
+
+
+def compact_live_decisions(bullets: list[str]) -> tuple[list[str], int]:
+    """Dedupe + junk-drop live ## Decisions bullets (tier-priority, marker-agnostic)."""
+    before = len(bullets)
+    compacted = dedupe_decision_bullets(bullets)
+    return compacted, before - len(compacted)
+
+
+def compact_live_decisions_file(project_path: Path) -> int:
+    """Rewrite project distill Decisions section when compact removes duplicates."""
+    if not project_path.is_file():
+        return 0
+    text = project_path.read_text(encoding="utf-8", errors="replace")
+    preamble, sections = _parse_sections(text)
+    existing = _bullets(sections.get("Decisions", ""))
+    if not existing:
+        return 0
+    compacted, removed = compact_live_decisions(existing)
+    if removed <= 0:
+        return 0
+    sections["Decisions"] = _format_bullets(compacted)
+    project_path.write_text(_join_sections(preamble, sections), encoding="utf-8")
+    return removed
+
+
+def compact_all_live_decisions(memory_home: Path) -> dict[str, int]:
+    """Compact every ``chats/projects/*.md`` (skips ``example.md``)."""
+    projects = memory_home / "chats" / "projects"
+    if not projects.is_dir():
+        return {}
+    removed_by_slug: dict[str, int] = {}
+    for path in sorted(projects.glob("*.md")):
+        if path.name == "example.md":
+            continue
+        count = compact_live_decisions_file(path)
+        if count:
+            removed_by_slug[path.stem] = count
+    return removed_by_slug
 
 
 def enforce_extracted_decisions_cap(
@@ -406,20 +451,20 @@ def merge_extracted_decisions(
     candidates = extract.get("decision_candidates") or []
     if not candidates:
         return existing, 0
-    prior = [normalize_snippet(b) for b in existing if b.strip()]
+    prior = [normalize_decision_content(b) for b in existing if b.strip()]
     out = list(existing)
     added = 0
     for row in candidates:
         if not isinstance(row, dict):
             continue
         text = str(row.get("text") or "").strip()
-        if not text:
+        if not text or is_decision_junk(text):
             continue
         line = f"[extracted] {text}"
         if not is_novel(text, prior):
             continue
         out.append(line)
-        prior.append(normalize_snippet(text))
+        prior.append(normalize_decision_content(text))
         added += 1
         if added >= max_add:
             break
@@ -551,6 +596,11 @@ def apply_extract_to_project(
     next_step_updated = False
     next_step_placeholder = not bool(existing_next_bullets)
 
+    decisions_now = _bullets(sections.get("Decisions", ""))
+    compacted_decisions, decisions_compacted = compact_live_decisions(decisions_now)
+    if decisions_compacted:
+        sections["Decisions"] = _format_bullets(compacted_decisions)
+
     merged = _join_sections(preamble, sections)
 
     tmp = project_path.with_suffix(".md.tmpcheck")
@@ -570,6 +620,7 @@ def apply_extract_to_project(
         "project_file": str(project_path),
         "decisions_added": decisions_added,
         "decisions_merged": decisions_merged,
+        "decisions_compacted": decisions_compacted,
         "decisions_extracted": int(extract.get("decisions_extracted") or 0),
         "coverage_ratio": extract.get("coverage_ratio"),
         "next_step_updated": next_step_updated,
