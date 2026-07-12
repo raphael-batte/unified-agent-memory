@@ -6,6 +6,12 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-07-12
+
+### Added
+
+- **Project-tag search ranking** — `hub_search` now folds each doc's **slug** (project filename) and **Open-thread `**[label]**`** into `tag_tokens` and scores them: `score = base · section · layer · recency · tag_boost · literal_boost`. `tag_boost` lifts docs whose slug/label matches the query (up to +150%), so a Cross-project SEO thread stored in `alpha-hub.md` outranks unrelated noise on a "beta-app" query — the topic lives in the label, not the filename (closes cross-project hole #3). A slug/label-only match now surfaces even with zero body-BM25 (`_TAG_ONLY_BASE`); `literal_boost` restores grep parity for distinctive verbatim terms in text/path. Covered by `test_search_project_tag.py` (ranking eval incl. the workspace-vs-topic case)
+
 ## [0.26.0] - 2026-07-12
 
 ### Added
