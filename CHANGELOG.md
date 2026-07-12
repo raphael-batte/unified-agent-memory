@@ -6,6 +6,20 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-07-12
+
+### Added
+
+- **`compact_live_decisions()`** — tier-priority dedup on live `chats/projects/*.md` Decisions; runs after `apply_extract_to_project` and in `memory-doctor --fix`
+- **Marker/label-agnostic decision normalize** — `normalize_decision_content()` strips `[curated]`/`[extracted]`/`[bootstrap]` and `**label:**` before compare; curated wins over extracted on collision
+- **Junk filter in code** — `<mcp_meta_tools>`, `briefly inform the user`, and related markers in `is_decision_junk()` (apply + compact)
+- **Optional fuzzy dedup** — `DECISION_FUZZY_DEDUP=1` enables Jaccard ≥0.8 with numeric-token guard (`32px` vs `24px` stay distinct)
+
+### Changed
+
+- `is_novel` / `merge_extracted_decisions` / archive append use content-normalized comparison
+- `dedupe_bullets` delegates to `dedupe_decision_bullets`
+
 ## [0.24.0] - 2026-07-12
 
 ### Changed

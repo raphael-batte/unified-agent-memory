@@ -377,6 +377,68 @@ class TestProjectMerge(unittest.TestCase):
             self.assertEqual(sections.get("Summary", "").strip(), "")
             self.assertNotIn("deploy process", text)
 
+    def test_compact_live_decisions_collapses_agent_bypass_triples(self) -> None:
+        gap = (
+            "set gap between package cards and banner "
+            "Cannot choose a package question 32px instead of 16px"
+        )
+        bullets = [f"[extracted] {gap}"] * 3 + [
+            "[curated] **arch:** keep this curated policy in original order",
+            "[extracted] Briefly inform the user about the task result and perform",
+        ]
+        compacted, removed = pm.compact_live_decisions(bullets)
+        self.assertEqual(removed, 3)
+        self.assertEqual(len(compacted), 2)
+        self.assertIn("32px", compacted[0])
+        self.assertTrue(compacted[1].startswith("[curated]"))
+
+    def test_compact_live_decisions_file_rewrites_project(self) -> None:
+        gap = (
+            "set gap between package cards and banner "
+            "Cannot choose a package question 32px instead of 16px"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text(
+                "# app\n\n## Decisions\n\n"
+                f"- [extracted] {gap}\n"
+                f"- [extracted] {gap}\n"
+                f"- [extracted] {gap}\n\n"
+                "## Recent\n\n",
+                encoding="utf-8",
+            )
+            removed = pm.compact_live_decisions_file(path)
+            self.assertEqual(removed, 2)
+            bullets = pm._bullets(pm._parse_sections(path.read_text(encoding="utf-8"))[1].get("Decisions", ""))
+            self.assertEqual(len(bullets), 1)
+
+    def test_apply_extract_compacts_existing_duplicates(self) -> None:
+        gap = (
+            "set gap between package cards and banner "
+            "Cannot choose a package question 32px instead of 16px"
+        )
+        extract = {
+            "uuid": "noop",
+            "workspace_slug": "app",
+            "user_messages": [],
+            "user_message_count": 0,
+            "strategy": "tail",
+            "decision_candidates": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "app.md"
+            path.write_text(
+                "# app\n\n## Decisions\n\n"
+                f"- [extracted] {gap}\n"
+                f"- [extracted] {gap}\n\n"
+                "## Recent\n\n",
+                encoding="utf-8",
+            )
+            result = pm.apply_extract_to_project(path, extract, today="2026-06-08")
+            bullets = pm._bullets(pm._parse_sections(path.read_text(encoding="utf-8"))[1].get("Decisions", ""))
+            self.assertEqual(len(bullets), 1)
+            self.assertGreaterEqual(result.get("decisions_compacted", 0), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
