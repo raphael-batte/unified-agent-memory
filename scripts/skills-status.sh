@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=lib/config.sh
 source "$SCRIPT_DIR/lib/config.sh"
+# shellcheck source=lib/plugin-install.sh
+source "$SCRIPT_DIR/lib/plugin-install.sh"
 
 MEMORY_HOME_OVERRIDE=""
 FRAMEWORK_OVERRIDE=""
@@ -16,7 +18,8 @@ usage() {
 Usage: $0 [--memory-home PATH] [--framework-root PATH]
 
 Shows:
-  ~/.cursor/skills/     — linked skills (framework vs personal)
+  ~/.cursor/plugins/local/agent-memory — local plugin symlink
+  ~/.cursor/skills/     — linked skills (@agent-memory)
   \$MEMORY_HOME/skills/ — domain skills not necessarily linked
 EOF
 }
@@ -47,9 +50,27 @@ is_framework_name() {
 }
 
 echo "Skills status"
+echo "  Plugin:      $(plugin_local_target agent-memory)"
 echo "  Cursor dir:  $CURSOR_SKILLS"
 echo "  Memory hub:  $MEMORY_HOME"
 echo "  Framework:   $FRAMEWORK_ROOT"
+echo
+
+PLUGIN_TARGET="$(plugin_local_target agent-memory)"
+echo "── Local plugin ─────────────────────────"
+if [[ -L "$PLUGIN_TARGET" || -d "$PLUGIN_TARGET" ]]; then
+  ok="✓"
+  [[ -e "$PLUGIN_TARGET" ]] || ok="✗ broken"
+  target="$(readlink "$PLUGIN_TARGET" 2>/dev/null || echo "$PLUGIN_TARGET")"
+  printf "  %s agent-memory → %s\n" "$ok" "$target"
+  if [[ -f "$PLUGIN_TARGET/skills/agent-memory/SKILL.md" ]]; then
+    echo "  ✓ bundle skill: skills/agent-memory/SKILL.md"
+  else
+    echo "  ✗ bundle skill missing"
+  fi
+else
+  echo "  ✗ not installed — run: bash scripts/install-local.sh"
+fi
 echo
 
 echo "── ~/.cursor/skills ─────────────────────"
@@ -114,14 +135,27 @@ else
 fi
 echo
 
-echo "── Framework skills (available) ───────────"
+echo "── Bundle skills (available) ──────────────"
+bundle_skills="$FRAMEWORK_ROOT/skills"
+if [[ -d "$bundle_skills" ]]; then
+  for dir in "$bundle_skills"/*; do
+    [[ -d "$dir" && -f "$dir/SKILL.md" ]] || continue
+    name="$(basename "$dir")"
+    state="not linked"
+    if [[ -e "$CURSOR_SKILLS/$name/SKILL.md" ]]; then
+      state="linked"
+    fi
+    echo "  ✓ $name — $state"
+  done
+else
+  echo "  (missing skills/ in bundle)"
+fi
+echo
+
+echo "── Legacy framework names ─────────────────"
 for name in "${FRAMEWORK_NAMES[@]}"; do
-  if [[ "$name" == "agent-memory" ]]; then
-    src="$FRAMEWORK_ROOT"
-  else
-    src="$FRAMEWORK_ROOT/skills/$name"
-  fi
-  if [[ -e "$src" ]]; then
+  src="$FRAMEWORK_ROOT/skills/$name"
+  if [[ -e "$src/SKILL.md" || -e "$src" ]]; then
     echo "  ✓ $name"
   else
     echo "  ✗ $name (missing at $src)"

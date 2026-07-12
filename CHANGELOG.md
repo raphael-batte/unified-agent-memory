@@ -6,6 +6,14 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-track `## Open threads`** — `memory-pointer.py add-thread <project> --label <dir> "…"` upserts one direction bullet per active track (`**[label]** text`), replace-by-label, cap 7. `project_merge.upsert_open_thread` is the pure helper; `memory-pointer.py show` now also lists Open threads. Distill still never writes Open threads (curated-only). Covered by `test_open_threads_contract.py`, `test_multi_track_memory.py`, `test_routing_integration.py`
+- **Routing + semantic-merge docs** — read Open threads first for multi-topic; semantic-merge/example/SKILL updated with auto direction labels, cap 5–7, junk filter, session-end checklist
+- **Global routing rule** — `rules/agent-memory-routing.mdc` (`alwaysApply`); auto-linked to `~/.cursor/rules/` by `install-local.sh` and `init-memory.sh`
+- **`memory-routing-hint.py`** / **`resolve-workspace-slug.py`** — resolve workspace → distill slug without hardcoded project paths
+- Plugin validation requires `rules/agent-memory-routing.mdc`
+
 ## [0.23.0] - 2026-06-18
 
 ### Added

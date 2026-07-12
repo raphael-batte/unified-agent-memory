@@ -3,7 +3,8 @@ description: After sessionEnd — read agent-memory checklist from hook log
 alwaysApply: false
 ---
 
-Pair with **session-start** rule: `bash scripts/init-project-rules.sh --project <workspace>`
+Pair with **global routing** rule: `~/.cursor/rules/agent-memory-routing.mdc` (installed by `install-local.sh`).
+Optional per-repo override: `bash scripts/init-project-rules.sh --project <workspace>`
 
 # Session end — memory checklist
 
