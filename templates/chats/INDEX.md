@@ -8,7 +8,7 @@ Distilled conversation history. Skill: **agent-memory** (routing) · **semantic-
 
 | Situation | Read |
 |-----------|------|
-| Current next step | `projects/<slug>.md` → **## Next step** |
+| Current direction / where we stopped | `memory-routing-hint.py --json .` or `projects/<slug>.md` → **## Open threads** |
 | Past decisions / why | `projects/<slug>.md` → **## Decisions** |
 
 ## Projects

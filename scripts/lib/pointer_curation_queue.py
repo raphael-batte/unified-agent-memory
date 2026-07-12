@@ -69,6 +69,28 @@ def enqueue(
     _save(memory_home, items[-30:])
 
 
+def enqueue_open_thread_draft(
+    memory_home: Path,
+    *,
+    chat_id: str,
+    project_rel: str,
+    draft_result: dict[str, Any],
+    workspace_slug: str | None = None,
+    staging_path: str | None = None,
+) -> None:
+    if not draft_result.get("drafted"):
+        return
+    enqueue(
+        memory_home,
+        chat_id=chat_id,
+        project_rel=project_rel,
+        reason="open-thread-draft",
+        workspace_slug=workspace_slug,
+        staging_path=staging_path,
+        kind="open-thread",
+    )
+
+
 def enqueue_compaction(
     memory_home: Path,
     *,
@@ -132,24 +154,40 @@ def session_start_user_message(
     workspace_roots: list[str] | None,
 ) -> str | None:
     slugs = slugs_from_workspace_roots(workspace_roots or [])
-    pending = list_pending(memory_home, workspace_slugs=slugs if slugs else None, kind="pointer")
+    pending_pointer = list_pending(
+        memory_home, workspace_slugs=slugs if slugs else None, kind="pointer"
+    )
+    pending_open_thread = list_pending(
+        memory_home, workspace_slugs=slugs if slugs else None, kind="open-thread"
+    )
     compaction = list_pending(
         memory_home, workspace_slugs=slugs if slugs else None, kind="compaction"
     )
-    if not pending and not compaction:
+    if not pending_pointer and not pending_open_thread and not compaction:
         return None
     lines: list[str] = []
-    if pending:
+    if pending_open_thread:
         lines.append(
-            f"[agent-memory] {len(pending)} chat(s) may need ## Open threads "
+            f"[agent-memory] {len(pending_open_thread)} chat(s) have ## Open threads "
+            "[auto] drafts (add-thread / semantic-merge-prompt.md):"
+        )
+        for item in pending_open_thread[:3]:
+            rel = item.get("project_rel", "?")
+            reason = item.get("reason", "open-thread-draft")
+            lines.append(f"  - {rel} ({reason})")
+        if len(pending_open_thread) > 3:
+            lines.append(f"  - ... +{len(pending_open_thread) - 3} more")
+    if pending_pointer:
+        lines.append(
+            f"[agent-memory] {len(pending_pointer)} chat(s) may need ## Open threads "
             "(add-thread / semantic-merge-prompt.md):"
         )
-        for item in pending[:3]:
+        for item in pending_pointer[:3]:
             rel = item.get("project_rel", "?")
             reason = item.get("reason", "pointer")
             lines.append(f"  - {rel} ({reason})")
-        if len(pending) > 3:
-            lines.append(f"  - ... +{len(pending) - 3} more")
+        if len(pending_pointer) > 3:
+            lines.append(f"  - ... +{len(pending_pointer) - 3} more")
     if compaction:
         lines.append(
             f"[agent-memory] {len(compaction)} chat(s) need rolling compaction "
@@ -161,6 +199,13 @@ def session_start_user_message(
     return "\n".join(lines)
 
 
-def needs_enqueue(apply_result: dict[str, Any] | None) -> tuple[bool, str]:
-    """## Next step is deprecated; do not enqueue pointer curation from distill."""
+def needs_enqueue(
+    apply_result: dict[str, Any] | None,
+    *,
+    draft_result: dict[str, Any] | None = None,
+) -> tuple[bool, str]:
+    """Enqueue when an ``[auto]`` Open threads draft was written and needs curation."""
+    draft = draft_result or (apply_result or {}).get("draft_result") or {}
+    if draft.get("drafted") and draft.get("needs_curation"):
+        return True, "open-thread-draft"
     return False, ""

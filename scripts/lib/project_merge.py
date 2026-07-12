@@ -79,7 +79,10 @@ def recent_line(extract: dict, today: str | None = None) -> str:
 OPEN_THREAD_LABEL = re.compile(r"^\*\*\[(?P<label>[^\]]+)\]\*\*\s*(?P<text>.*)$", re.S)
 # Trailing "· _upd YYYY-MM-DD_" tail-of-topic timestamp; tolerant of ISO too.
 OPEN_THREAD_STAMP = re.compile(r"\s*·\s*_upd\s+(?P<date>[0-9T:\-]+)_\s*$")
+OPEN_THREAD_AUTO_PREFIX = re.compile(r"^\[auto\]\s*", re.I)
 MAX_OPEN_THREADS = 7
+TIER_AUTO = "auto"
+TIER_CURATED = "curated"
 
 
 def open_thread_label(bullet: str) -> str | None:
@@ -116,6 +119,118 @@ def parse_open_thread(bullet: str) -> dict | None:
 def format_open_thread(label: str, text: str, updated: str) -> str:
     """Build a ``**[label]** text · _upd DATE_`` bullet (timestamp = tail of topic)."""
     return f"**[{label}]** {text} · _upd {updated}_"
+
+
+def strip_open_thread_auto_marker(text: str) -> str:
+    return OPEN_THREAD_AUTO_PREFIX.sub("", text.strip()).strip()
+
+
+def open_thread_tier(bullet: str) -> str:
+    """Return ``auto`` when body starts with ``[auto]``; else ``curated``."""
+    parsed = parse_open_thread(bullet)
+    if not parsed:
+        return TIER_CURATED
+    body = parsed["text"]
+    if body.lower().startswith("[auto]"):
+        return TIER_AUTO
+    return TIER_CURATED
+
+
+def format_open_thread_tiered(
+    label: str,
+    text: str,
+    updated: str,
+    *,
+    tier: str = TIER_CURATED,
+) -> str:
+    body, _ = _strip_stamp(text.strip())
+    body = strip_open_thread_auto_marker(body)
+    if tier == TIER_AUTO:
+        body = f"[auto] {body}" if body else "[auto]"
+    if not body:
+        raise ValueError("open thread text is empty")
+    return format_open_thread(label, body, updated)
+
+
+def _cap_open_threads_tiered(bullets: list[str], cap: int) -> list[str]:
+    """Cap list: evict oldest ``[auto]`` first; only then oldest curated."""
+    if cap <= 0 or len(bullets) <= cap:
+        return bullets
+    ordered = list(bullets)
+    while len(ordered) > cap:
+        evict_idx = next(
+            (i for i, b in enumerate(ordered) if open_thread_tier(b) == TIER_AUTO),
+            None,
+        )
+        if evict_idx is None:
+            ordered.pop(0)
+        else:
+            ordered.pop(evict_idx)
+    return ordered
+
+
+def upsert_open_thread_tiered(
+    existing: list[str],
+    label: str,
+    text: str,
+    *,
+    updated: str,
+    tier: str = TIER_AUTO,
+    cap: int = MAX_OPEN_THREADS,
+) -> tuple[list[str], bool, str]:
+    """
+    Tier-aware upsert for Open threads.
+
+    Returns ``(bullets, changed, skip_reason)``.
+    ``[auto]`` never overwrites curated for the same label; curated cap blocks new auto.
+    """
+    label = label.strip()
+    body, _ = _strip_stamp(text.strip())
+    body = strip_open_thread_auto_marker(body)
+    if not label:
+        raise ValueError("open thread label is empty")
+    if not body:
+        raise ValueError("open thread text is empty")
+
+    label_key = label.lower()
+    had_auto = any(open_thread_tier(b) == TIER_AUTO for b in existing)
+    for bullet in existing:
+        existing_label = open_thread_label(bullet)
+        if not existing_label or existing_label.lower() != label_key:
+            continue
+        if tier == TIER_AUTO and open_thread_tier(bullet) == TIER_CURATED:
+            return existing, False, "skipped_curated"
+        break
+
+    new_bullet = format_open_thread_tiered(label, body, updated, tier=tier)
+    kept: list[str] = []
+    for bullet in existing:
+        stripped = bullet.strip()
+        if not stripped:
+            continue
+        existing_label = open_thread_label(stripped)
+        if existing_label and existing_label.lower() == label_key:
+            continue
+        kept.append(stripped)
+
+    if tier == TIER_AUTO and len(kept) + 1 > cap:
+        kept = [b for b in kept if open_thread_tier(b) != TIER_AUTO]
+
+    while tier == TIER_AUTO and len(kept) >= cap:
+        auto_indices = [
+            i for i, b in enumerate(kept) if open_thread_tier(b) == TIER_AUTO
+        ]
+        if auto_indices:
+            kept.pop(auto_indices[0])
+            continue
+        if had_auto:
+            kept.pop(0)
+            break
+        return existing, False, "skipped_cap_curated_full"
+
+    kept.append(new_bullet)
+    kept = _cap_open_threads_tiered(kept, cap)
+    return kept, True, ""
 
 
 def upsert_open_thread(

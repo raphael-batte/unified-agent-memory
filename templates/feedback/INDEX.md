@@ -9,7 +9,7 @@ What worked (+) and what failed (−). Skill: **agent-memory** (`feedback/` rout
 |-----------|------|
 | Proposing architecture / CI / deploy / workflow | [fails.md](fails.md) + [wins.md](wins.md) + [../context/preferences.md](../context/preferences.md) |
 | User rejected an idea before | fails.md — skip lines with `_superseded_` (rule is in conventions) |
-| Normal coding task | skip — use distill ## Next step |
+| Normal coding task | skip — use distill ## Open threads / routing-hint |
 
 ## Files
 

@@ -1,8 +1,8 @@
 {
   "name": "agent-memory",
   "displayName": "Agent Memory",
-  "version": "0.25.0",
-  "description": "Persistent memory for Cursor: project distill with Next step pointers, global context, feedback, and hub search across past decisions. Private local files, auto-distill on session boundaries, secrets redacted. No cloud required.",
+  "version": "0.26.0",
+  "description": "Persistent memory for Cursor: rolling Open threads forward pointer (30d cross-hub), project distill, global context, feedback, and hub search. Auto-distill on session boundaries; [auto] thread drafts for agent curation. Private local hub, secrets redacted. No cloud required.",
   "author": {
     "name": "raphaelbatte"
   },
@@ -18,7 +18,9 @@
     "transcripts",
     "hooks",
     "security",
-    "search"
+    "search",
+    "open-threads",
+    "routing"
   ],
   "category": "developer-tools",
   "tags": [

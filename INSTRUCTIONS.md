@@ -25,7 +25,7 @@ See [ONBOARDING.md](ONBOARDING.md) · [docs/SYNC-AND-TRIGGERS.md](docs/SYNC-AND-
 | Who am I / my projects | `$MEMORY_HOME/context/GLOBAL_CONTEXT.md` |
 | Git, CI, deploy rules | `$MEMORY_HOME/context/conventions.md` |
 | Servers, paths, ports | `$MEMORY_HOME/context/infra.md` |
-| Where we stopped | `$MEMORY_HOME/chats/projects/<slug>.md` → **## Next step** (auto on distill) |
+| Where we stopped | `memory-routing-hint.py` → `open_threads`, or `chats/projects/<slug>.md` → **## Open threads** |
 | What we discussed | `$MEMORY_HOME/chats/projects/<slug>.md` |
 | «How did we do X» / find past decision | `memory-search.py "terms"` first, then hit `path#section` |
 | Full chat when distill thin | `[title](uuid)` link in distill ## Recent |
@@ -42,8 +42,8 @@ See [ONBOARDING.md](ONBOARDING.md) · [docs/SYNC-AND-TRIGGERS.md](docs/SYNC-AND-
 
 | Situation | Read |
 |-----------|------|
-| Continue known repo | **distill** `chats/projects/<slug>.md` → **## Next step** first, then Recent / Decisions |
-| `## Next step` has `_No forward pointer._` or `[?]` | **Mandatory drill-down:** follow `[title](uuid)` in that line → transcript tail (~10–20 turns, not full jsonl); then `## Decisions` / `## Recent` in same file |
+| Continue known repo | `memory-routing-hint.py --json .` → **open_threads**; then distill **## Open threads** + Recent / Decisions |
+| Open thread vague / stale | **Drill-down:** follow `[title](uuid)` in **## Recent** → transcript tail (~10–20 turns); curate with `add-thread` |
 | User asks «what did we decide» / history / «why» | distill `## Decisions` for that slug |
 | New project, unknown workspace | **GLOBAL_CONTEXT** — Projects table |
 | Task touches deploy, git, CI, secrets | **conventions.md** (not every session) |
@@ -56,8 +56,8 @@ See [ONBOARDING.md](ONBOARDING.md) · [docs/SYNC-AND-TRIGGERS.md](docs/SYNC-AND-
 **Flow A — continue known project (most common)**
 
 ```
-1. chats/projects/<slug>.md → ## Next step (if _No forward pointer._ or [?] → drill chat link in that line first)
-2. ## Decisions + latest Recent
+1. memory-routing-hint.py --json . → open_threads (rolling 30d, cross-hub)
+2. chats/projects/<slug>.md → ## Open threads + ## Decisions + latest Recent
 3. If still thin → open [title](uuid) from Recent (transcript tail only)
 ```
 
@@ -126,7 +126,7 @@ After reading routed layers, **self-check** (internal — do not dump files unle
 |------------|------------------------------|
 | GLOBAL_CONTEXT | Name projects from Projects table |
 | conventions | State one cross-project rule in one sentence |
-| distill Next step | State forward pointer from `chats/projects/<slug>.md` |
+| Open threads | State forward pointer from routing-hint or `chats/projects/<slug>.md` → **## Open threads** |
 | feedback/fails | Name one `_superseded_` lesson (Flow E / proposing) |
 
 If any answer is wrong or empty → re-read that layer. Full checklist: [scripts/session-smoke.md](scripts/session-smoke.md).
@@ -170,9 +170,9 @@ If any answer is wrong or empty → re-read that layer. Full checklist: [scripts
 | **Global context** | `context/` | Who? Rules? Projects? | ~40–80 lines/file |
 | **Preferences** | `context/preferences.md` | How user thinks? | ~40 lines |
 | **Feedback** | `feedback/wins.md`, `fails.md` | What +/− worked? | accumulates, ~80 then archive |
-| **Chat memory** | `chats/projects/` | History + **## Next step** (forward pointer) | ~100 lines/file |
+| **Chat memory** | `chats/projects/` | History + **## Open threads** (forward pointer) | ~100 lines/file |
 
-**Separation:** rules (conventions) ≠ style (preferences) ≠ lessons (feedback) ≠ history (Decisions/Recent) ≠ now (**Next step** in distill).
+**Separation:** rules (conventions) ≠ style (preferences) ≠ lessons (feedback) ≠ history (Decisions/Recent) ≠ now (**Open threads** in distill).
 
 ---
 
@@ -266,7 +266,7 @@ Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/<uuid>/<uuid>.j
 - **Preserve original chat language(s)** — do not translate during extract or merge
 - **Flow:** `distill-extract.py` → `distill-merge.py` (manifest + staging) → agent curates `## Decisions` via semantic-merge → hooks/sync `--apply` for bookkeeping
 - **Strategy:** `--strategy auto` → **importance** (per-segment selection for long chats); legacy: `tail`, `spread`, `all`
-- **`--apply`:** Recent ≤3, `## Next step`, mechanical `## Summary` if empty, novel `[extracted]` from `decision_candidates` (cap 30 per file; FIFO evict to `archive/<slug>-decisions.md`). **Never** raw staging bullets into curated Decisions
+- **`--apply`:** Recent ≤3, mechanical `## Summary` if empty, novel `[extracted]` from `decision_candidates` (cap 30 per file; FIFO evict to `archive/<slug>-decisions.md`). Optional **`[auto]` Open threads** draft from tail segment (v0.26+). **Never** raw staging bullets into curated Decisions. **`## Next step` is deprecated** — do not write there.
 - **`[extracted]` vs curated:** hooks append precision-filtered `[extracted]`; agent writes `[curated]` / keeps `[bootstrap]` — curated bullets are not evicted by cap
 
 ```bash
@@ -296,10 +296,12 @@ python3 $FRAMEWORK_ROOT/scripts/verify-memory.py --memory-home "$MEMORY_HOME" --
 ### Distill template
 
 ```markdown
-## Summary | ## Decisions | ## Next step | ## Preferences | ## Open threads | ## Recent
+## Summary | ## Decisions | ## Preferences | ## Open threads | ## Recent
 ```
 
-**Forward pointer:** `## Next step` — one bullet, overwritten on each boundary distill (`lib/forward_pointer.py` heuristics on transcript tail). When no pointer is extracted, apply writes `_No forward pointer._` or `[?] _Not refreshed._` plus a drill link to the source chat. Agent may curate manually after hooks run.
+(`## Next step` may exist as deprecated passthrough — ignore.)
+
+**Forward pointer:** **`## Open threads`** — one bullet per direction (`**[label]** text · _upd DATE_`), cap 7. Curated via `memory-pointer.py add-thread`. Distill may write **`[auto]`** drafts from tail topic segment; auto never overwrites curated. Rolling 30d cross-hub view: `memory-routing-hint.py --json .`
 
 ---
 
@@ -347,7 +349,7 @@ Scripts write user data **only** to `$MEMORY_HOME`; anchor at fixed path outside
 - Pasting credentials into chat distill «for reference»
 - Committing `$MEMORY_HOME` to git
 - Putting personal data inside the `agent-memory` framework clone
-- Relying on stale **## Next step** without re-distill after long sessions
+- Relying on stale **`[auto]` Open threads** without curation or re-distill after long sessions
 
 ---
 

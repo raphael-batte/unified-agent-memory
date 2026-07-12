@@ -14,8 +14,12 @@ from lib import pointer_curation_queue as pcq  # noqa: E402
 
 
 class TestPointerQueue(unittest.TestCase):
-    def test_needs_enqueue_always_false(self) -> None:
-        self.assertEqual(pcq.needs_enqueue({"next_step_kind": "placeholder_empty"}), (False, ""))
+    def test_needs_enqueue_on_auto_draft(self) -> None:
+        draft = {"drafted": True, "needs_curation": True}
+        self.assertEqual(
+            pcq.needs_enqueue({}, draft_result=draft),
+            (True, "open-thread-draft"),
+        )
         self.assertEqual(pcq.needs_enqueue(None), (False, ""))
 
     def test_enqueue_and_session_message(self) -> None:
