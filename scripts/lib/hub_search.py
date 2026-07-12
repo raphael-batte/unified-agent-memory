@@ -47,6 +47,12 @@ _LAYER_WEIGHTS: dict[str, float] = {
 }
 _ARCHIVE_WEIGHT = 0.7
 
+# Project-tag ranking (hole #3): a doc's slug + Open-thread label carry the topic
+# even when the workspace/filename does not. Fold them into scoring.
+_TAG_WEIGHT = 1.5  # up to +150% when the query fully matches a doc's slug/label
+_LITERAL_WEIGHT = 1.3  # grep parity: a distinctive query term appears verbatim
+_TAG_ONLY_BASE = 0.5  # BM25 floor so a slug/label-only match still surfaces
+
 BM25_K1 = 1.2
 BM25_B = 0.75
 
@@ -60,6 +66,7 @@ class SearchDoc:
     date: str | None
     chat_id: str | None = None
     archived: bool = False
+    tag_tokens: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -84,6 +91,24 @@ def _prefix_key(token: str) -> str:
 def tokenize(text: str) -> list[str]:
     raw = [_prefix_key(tok) for tok in _TOKEN_RE.findall(text.lower()) if len(tok) > 2]
     return [t for t in raw if t not in DOMAIN_STOPWORDS and t not in _SEARCH_STOPWORDS]
+
+
+def _slug_tokens(rel_path: str) -> tuple[str, ...]:
+    """Tag tokens from a doc's project slug (filename), ``-decisions`` stripped."""
+    stem = Path(rel_path).stem
+    if stem.endswith("-decisions"):
+        stem = stem[: -len("-decisions")]
+    return tuple(dict.fromkeys(tokenize(stem.replace("-", " ").replace("_", " "))))
+
+
+def _label_tokens(bullet: str) -> tuple[str, ...]:
+    """Tag tokens from an Open-thread ``**[label]**`` bullet (topic, not workspace)."""
+    from lib.project_merge import open_thread_label  # noqa: WPS433
+
+    label = open_thread_label(bullet)
+    if not label:
+        return ()
+    return tuple(dict.fromkeys(tokenize(label.replace("-", " ").replace("_", " "))))
 
 
 def _section_weight(section: str, *, archived: bool) -> float:
@@ -157,15 +182,20 @@ def _docs_from_markdown(
     preamble, sections = parse_sections(text)
     doc_date = last_updated_from_preamble(preamble)
     rel = str(path.relative_to(memory_home))
+    slug_toks = _slug_tokens(rel)
     docs: list[SearchDoc] = []
 
     for section_name, body in sections.items():
         if not body.strip():
             continue
+        is_open_threads = section_name.strip().lower() == "open threads"
         chat_id = None
         for unit in bullets(body):
             if chat_id is None:
                 chat_id = chat_id_from_bullet(unit)
+            tag_tokens = slug_toks
+            if is_open_threads:
+                tag_tokens = tuple(dict.fromkeys(slug_toks + _label_tokens(unit)))
             docs.append(
                 SearchDoc(
                     text=unit,
@@ -175,6 +205,7 @@ def _docs_from_markdown(
                     date=doc_date,
                     chat_id=chat_id,
                     archived=archived,
+                    tag_tokens=tag_tokens,
                 )
             )
         if layer == "context":
@@ -187,6 +218,7 @@ def _docs_from_markdown(
                         layer=layer,
                         date=doc_date,
                         archived=archived,
+                        tag_tokens=slug_toks,
                     )
                 )
     return docs
@@ -258,6 +290,8 @@ def _docs_from_extracts(
         chat_id = str(data.get("uuid") or path.stem)
         date = str(data.get("date") or mtime.strftime("%Y-%m-%d"))
         rel = str(path.relative_to(memory_home))
+        ws_slug = str(data.get("workspace_slug") or "")
+        tag_tokens = tuple(dict.fromkeys(tokenize(ws_slug.replace("-", " ")))) if ws_slug else ()
         for section, text in _extract_snippets(data):
             docs.append(
                 SearchDoc(
@@ -267,6 +301,7 @@ def _docs_from_extracts(
                     layer="extract",
                     date=date,
                     chat_id=chat_id,
+                    tag_tokens=tag_tokens,
                 )
             )
     return docs, eligible, purged
@@ -429,6 +464,9 @@ def search_hub(
     tokenized, doc_freq, avg_dl = _build_doc_freq(docs)
     n_docs = len(docs)
 
+    query_unique = list(dict.fromkeys(query_tokens))
+    literal_terms = [t for t in _TOKEN_RE.findall(query.lower()) if len(t) >= 4]
+
     hits: list[SearchHit] = []
     for doc, doc_tokens in zip(docs, tokenized):
         bm25 = _bm25_score(
@@ -438,12 +476,28 @@ def search_hub(
             doc_freq=doc_freq,
             n_docs=n_docs,
         )
-        if bm25 <= 0:
+        # Project-tag boost: query terms matching this doc's slug/label (hole #3).
+        tag_boost = 1.0
+        if doc.tag_tokens and query_unique:
+            matched = sum(
+                1
+                for q in query_unique
+                if any(_tokens_match(q, t) for t in doc.tag_tokens)
+            )
+            if matched:
+                tag_boost = 1.0 + _TAG_WEIGHT * (matched / len(query_unique))
+        # Literal/grep parity: a distinctive query term appears verbatim in text/path.
+        hay = f"{doc.text}\n{doc.rel_path}".lower()
+        literal_hit = any(term in hay for term in literal_terms)
+        literal_boost = _LITERAL_WEIGHT if literal_hit else 1.0
+
+        if bm25 <= 0 and tag_boost == 1.0 and not literal_hit:
             continue
+        base = bm25 if bm25 > 0 else _TAG_ONLY_BASE
         sw = _section_weight(doc.section, archived=doc.archived)
         lw = _LAYER_WEIGHTS.get(doc.layer, 1.0)
         rb = _recency_boost(doc.date)
-        score = bm25 * sw * lw * rb
+        score = base * sw * lw * rb * tag_boost * literal_boost
         drill = None
         if doc.chat_id and doc.layer in ("chats", "extract"):
             title = doc.text[:60].replace("\n", " ").strip() or "chat"
