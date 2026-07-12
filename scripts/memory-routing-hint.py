@@ -12,6 +12,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from lib.memory_config import resolve_memory_home, resolve_plugin_root  # noqa: E402
+from lib.open_threads import collect_open_threads  # noqa: E402
 from lib.workspace_slug_resolve import extract_next_step, resolve_slug  # noqa: E402
 
 
@@ -19,6 +20,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("workspace", nargs="?", default=".")
     parser.add_argument("--memory-home")
+    parser.add_argument("--days", type=int, default=30, help="Open threads window")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -32,6 +34,9 @@ def main() -> int:
         memory_home / "chats" / "projects" / f"{slug}.md" if slug else None
     )
     next_step = extract_next_step(distill_path) if distill_path else None
+    threads = collect_open_threads(
+        memory_home, days=args.days, priority_slug=slug
+    )
 
     payload = {
         "memory_home": str(memory_home),
@@ -41,6 +46,7 @@ def main() -> int:
         "slug_reason": reason,
         "distill_path": str(distill_path) if distill_path else None,
         "next_step_preview": next_step,
+        "open_threads": [t.to_dict() for t in threads],
     }
 
     if args.json:
@@ -54,6 +60,13 @@ def main() -> int:
             print(f"next_step: {next_step}")
         else:
             print("next_step: (missing or empty — read full distill)")
+        if threads:
+            print(f"open threads (≤{args.days}d, {len(threads)}):")
+            for t in threads:
+                age = f"{t.age_days}d" if t.age_days is not None else "?"
+                print(f"  [{t.slug}] {t.label}: {t.text}  ({age})")
+        else:
+            print("open threads: (none active)")
     return 0
 
 

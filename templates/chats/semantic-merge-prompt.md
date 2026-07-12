@@ -18,10 +18,12 @@ Use after `distill-merge.py` wrote `chats/merge-staging/<slug>-*.md`.
 6. Read target `## Decisions` — keep existing `[curated]` / `[bootstrap]`; do not delete mechanical `[extracted]` (hooks manage cap + archive).
 7. Write **new** `[curated]` bullets only where a candidate expresses a durable decision, preference, or constraint.
 8. Paraphrase; merge duplicates; drop noise, commands, one-off debug, credentials.
-9. Update `## Open threads` — **primary multi-track state**. One bullet per active
-   direction: `- **[label]** where it stopped (deploy YYYY-MM-DD)`.
+9. Update `## Open threads` — **primary multi-track state** (rolling 30d). One bullet per
+   active direction: `- **[label]** where it stopped · _upd YYYY-MM-DD_`.
    - `label` is auto: topic-segment slug / path in the message / workspace slug — never a
      hardcoded project enum.
+   - `· _upd DATE_` is the **tail-of-topic timestamp** = last activity of that direction;
+     the CLI stamps it and refreshes on re-touch. It drives the 30d window + eviction.
    - Upsert by label (replace the matching bullet, don't stack duplicates); cap 5–7,
      drop directions with no activity ~30d.
    - Junk filter: skip system prompts, `<mcp_meta_tools>`, bullets < 40 chars, and dupes.
