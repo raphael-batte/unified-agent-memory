@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print routing context for the agent (hub, slug, distill path, Next step preview)."""
+"""Print routing context for the agent (hub, slug, rolling Open threads pointer)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from lib.memory_config import resolve_memory_home, resolve_plugin_root  # noqa: E402
 from lib.open_threads import collect_open_threads  # noqa: E402
-from lib.workspace_slug_resolve import extract_next_step, resolve_slug  # noqa: E402
+from lib.pointer_provenance import NEXT_STEP_DEPRECATED_MARKER  # noqa: E402
+from lib.workspace_slug_resolve import resolve_slug  # noqa: E402
 
 
 def main() -> int:
@@ -33,7 +34,6 @@ def main() -> int:
     distill_path = (
         memory_home / "chats" / "projects" / f"{slug}.md" if slug else None
     )
-    next_step = extract_next_step(distill_path) if distill_path else None
     threads = collect_open_threads(
         memory_home, days=args.days, priority_slug=slug
     )
@@ -45,7 +45,9 @@ def main() -> int:
         "slug": slug,
         "slug_reason": reason,
         "distill_path": str(distill_path) if distill_path else None,
-        "next_step_preview": next_step,
+        "forward_pointer": "open_threads",
+        "next_step_deprecated": True,
+        "next_step_preview": NEXT_STEP_DEPRECATED_MARKER,
         "open_threads": [t.to_dict() for t in threads],
     }
 
@@ -56,17 +58,15 @@ def main() -> int:
         print(f"slug: {slug or '(unresolved)'} ({reason})")
         if distill_path:
             print(f"distill: {distill_path}")
-        if next_step:
-            print(f"next_step: {next_step}")
-        else:
-            print("next_step: (missing or empty — read full distill)")
+        print(f"forward pointer: ## Open threads (≤{args.days}d)")
         if threads:
-            print(f"open threads (≤{args.days}d, {len(threads)}):")
+            print(f"open threads ({len(threads)}):")
             for t in threads:
                 age = f"{t.age_days}d" if t.age_days is not None else "?"
                 print(f"  [{t.slug}] {t.label}: {t.text}  ({age})")
         else:
-            print("open threads: (none active)")
+            print("open threads: (none active — use add-thread after sessions)")
+        print(f"## Next step: deprecated ({NEXT_STEP_DEPRECATED_MARKER})")
     return 0
 
 

@@ -1,4 +1,4 @@
-"""Queue chats needing agent-curated ## Next step — sessionStart reminder."""
+"""Queue chats needing Open threads curation — sessionStart reminder."""
 
 from __future__ import annotations
 
@@ -141,8 +141,8 @@ def session_start_user_message(
     lines: list[str] = []
     if pending:
         lines.append(
-            f"[agent-memory] {len(pending)} chat(s) need ## Next step curation "
-            "(pointer-curate-prompt.md):"
+            f"[agent-memory] {len(pending)} chat(s) may need ## Open threads "
+            "(add-thread / semantic-merge-prompt.md):"
         )
         for item in pending[:3]:
             rel = item.get("project_rel", "?")
@@ -157,19 +157,10 @@ def session_start_user_message(
         )
         for item in compaction[:2]:
             lines.append(f"  - {item.get('chat_id', '?')[:8]}… ({item.get('reason', '')})")
-    lines.append("Run semantic-merge / pointer-curate before new work.")
+    lines.append("Run semantic-merge / add-thread before new work.")
     return "\n".join(lines)
 
 
 def needs_enqueue(apply_result: dict[str, Any] | None) -> tuple[bool, str]:
-    if not apply_result:
-        return False, ""
-    kind = apply_result.get("next_step_kind")
-    conf = float(apply_result.get("pointer_confidence") or 0.0)
-    from lib.defaults import POINTER_LOW_CONFIDENCE
-
-    if kind in ("placeholder_empty", "placeholder_stale"):
-        return True, kind or "placeholder"
-    if conf < POINTER_LOW_CONFIDENCE:
-        return True, f"low_confidence_{conf:.2f}"
+    """## Next step is deprecated; do not enqueue pointer curation from distill."""
     return False, ""

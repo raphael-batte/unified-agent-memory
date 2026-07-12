@@ -19,30 +19,33 @@ python3 "<plugin_root>/scripts/memory-routing-hint.py" --json .
 
 Use `distill_path` from JSON. If `slug` is null: list `<memory_home>/chats/projects/*.md` (skip `example.md`) or invoke `@agent-memory`.
 
-## Step 1 — read distill (mandatory)
+## Step 1 — forward pointer (mandatory)
 
-The routing hint already prints `open_threads` — the **rolling 30d union of active
+The routing hint prints `open_threads` — the **rolling 30d union of active
 directions across the whole hub** (every project file, newest first; your workspace
 sorts first but does not gate visibility). A thread recorded in another project still
-shows here. Match the user's topic to a `**[label]**` bullet first.
+shows here. **This is the forward pointer.**
+
+Match the user's topic to a `**[label]**` bullet first.
 
 Then, if needed, read the resolved distill file → sections in order:
 
-1. **## Open threads** — active directions (multi-track), `**[label]** text · _upd DATE_`.
-2. **## Next step** — optional default pointer (follow if the chat opened with no topic).
-3. **## Recent** — last distilled chats.
-4. **## Decisions** — if architecture/deploy/cross-cutting.
+1. **## Open threads** — where you stopped per direction, `**[label]** text · _upd DATE_`.
+2. **## Recent** — last distilled chats (drill transcript if thread is stale).
+3. **## Decisions** — durable constraints / architecture.
+
+**`## Next step` is deprecated** — ignore auto placeholders; do not write there.
 
 Full cross-hub view on demand:
 `python3 <plugin_root>/scripts/memory-pointer.py threads --days 30 --memory-home <hub>`
 
-If `_No forward pointer._` or `[?]` — drill the `[title](uuid)` link in that line (transcript tail only).
+If a thread is vague — drill the `[title](uuid)` link in **## Recent** (transcript tail).
 
 ## Step 2 — off-topic or new subject
 
-If the user question matches **no** Open threads bullet and not Next step:
+If the user question matches **no** Open threads bullet:
 
-- Search Open threads + hub first:
+- Search hub first:
   `python3 <plugin_root>/scripts/memory-search.py "<keywords>" --memory-home <hub> --top 5`
 - Say briefly: **Open thread:** … **Your question:** …
 - Then answer the question.

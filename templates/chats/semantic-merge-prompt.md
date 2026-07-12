@@ -29,7 +29,7 @@ Use after `distill-merge.py` wrote `chats/merge-staging/<slug>-*.md`.
    - Junk filter: skip system prompts, `<mcp_meta_tools>`, bullets < 40 chars, and dupes.
    - Prefer the CLI so formatting/cap stay consistent:
      `memory-pointer.py add-thread <project> <dir> "…"`.
-10. If `## Next step` is placeholder (`_No forward pointer._` / `[?]`) — curate one line using `pointer-curate-prompt.md`; then `pointer-curation-queue` clears on save.
+10. **`## Next step` is deprecated** — do not curate; forward pointer = Open threads only.
 11. Do **not** paste raw candidate text into Decisions; do not duplicate bullets already in `chats/archive/<slug>-decisions.md`.
 12. Run `verify-memory.py`; hooks already updated Recent + `[extracted]` — do not `--apply` over curated Decisions.
 

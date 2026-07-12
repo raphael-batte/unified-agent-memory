@@ -1,4 +1,4 @@
-"""Multi-track Open threads: upsert semantics + independence from Next step."""
+"""Multi-track Open threads: upsert semantics + distill independence."""
 
 from __future__ import annotations
 
@@ -91,7 +91,7 @@ class TestAddOpenThreadFile(unittest.TestCase):
             self.assertIn("## Open threads", text)
             self.assertIn("- **[sdm-ui]** check menu · _upd", text)
 
-    def test_next_step_weak_auto_does_not_clear_open_threads(self) -> None:
+    def test_apply_extract_does_not_clear_open_threads(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "app.md"
             memory_pointer.add_open_thread(path, "sdm-ui", "check menu")

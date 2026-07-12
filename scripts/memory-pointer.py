@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Set or inspect curated ## Next step on a project distill file."""
+"""Curate forward pointer (## Open threads) on project distill files."""
 
 from __future__ import annotations
 
@@ -14,7 +14,12 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from lib.chats_manifest import load_manifest, processed_by_id, save_manifest, upsert_processed  # noqa: E402
 from lib.memory_config import resolve_memory_home  # noqa: E402
 from lib.open_threads import collect_open_threads  # noqa: E402
-from lib.pointer_provenance import PROVENANCE_CURATED, format_curated_next_step, strip_curated_marker  # noqa: E402
+from lib.pointer_provenance import (  # noqa: E402
+    PROVENANCE_CURATED,
+    format_curated_next_step,
+    format_next_step_deprecated,
+    strip_curated_marker,
+)
 from lib.project_merge import (  # noqa: E402
     LAST_UPDATED,
     _bullets,
@@ -81,7 +86,7 @@ def set_curated_pointer(
             f"_Last updated: {day}_\n\n"
             "## Summary\n\n\n"
             "## Decisions\n\n\n"
-            "## Next step\n\n\n"
+            f"## Next step\n\n{format_next_step_deprecated()}\n\n"
             "## Preferences\n\n\n"
             "## Open threads\n\n\n"
             "## Recent\n\n"
@@ -140,7 +145,7 @@ def _hub_skeleton(slug: str, day: str) -> str:
         f"_Last updated: {day}_\n\n"
         "## Summary\n\n\n"
         "## Decisions\n\n\n"
-        "## Next step\n\n\n"
+        f"## Next step\n\n{format_next_step_deprecated()}\n\n"
         "## Preferences\n\n\n"
         "## Open threads\n\n\n"
         "## Recent\n\n"
@@ -230,6 +235,11 @@ def cmd_add_thread(args: argparse.Namespace) -> int:
 
 
 def cmd_set(args: argparse.Namespace) -> int:
+    print(
+        "warning: `set` is deprecated — use `add-thread <project> <label> \"…\"` "
+        "for ## Open threads (forward pointer).",
+        file=sys.stderr,
+    )
     memory_home = resolve_memory_home(args.memory_home, script_file=__file__)
     project_path = _resolve_project_path(memory_home, args.project)
     text = args.text
@@ -287,7 +297,10 @@ def main() -> int:
     parser.add_argument("--memory-home", help="Hub path override")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    set_p = sub.add_parser("set", help="Write curated ## Next step")
+    set_p = sub.add_parser(
+        "set",
+        help="[deprecated] Write curated ## Next step — prefer add-thread",
+    )
     set_p.add_argument("project", help="Project slug or projects/foo.md")
     set_p.add_argument("text", nargs="?", help="Pointer text (or stdin)")
     set_p.set_defaults(func=cmd_set)
@@ -307,7 +320,7 @@ def main() -> int:
     threads_p.add_argument("--slug", help="Current workspace slug — sorts first (hint)")
     threads_p.set_defaults(func=cmd_threads)
 
-    show_p = sub.add_parser("show", help="Show Next step + Open threads")
+    show_p = sub.add_parser("show", help="Show Open threads (+ legacy Next step)")
     show_p.add_argument("project", help="Project slug or projects/foo.md")
     show_p.set_defaults(func=cmd_show)
 
