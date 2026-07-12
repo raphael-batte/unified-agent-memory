@@ -27,6 +27,7 @@ from lib.pending_chats import (  # noqa: E402
     scan_chat_stats,
 )
 from lib.boundary_hooks import distill_jsonl  # noqa: E402
+from lib.pointer_curation_queue import enqueue_open_thread_draft  # noqa: E402
 
 DEFAULT_PROJECTS_ROOT = Path.home() / ".cursor/projects"
 DEFAULT_DAYS = 180
@@ -179,6 +180,18 @@ def run_sync(
             st = out.get("status")
             if st == "distilled":
                 report["distills"] += 1
+                draft_result = out.get("draft_result") or {}
+                if draft_result.get("drafted"):
+                    enqueue_open_thread_draft(
+                        memory_home,
+                        chat_id=row["id"],
+                        project_rel=str(
+                            out.get("project_rel") or f"projects/{row['project']}.md"
+                        ),
+                        draft_result=draft_result,
+                        workspace_slug=str(out.get("slug") or row.get("project") or ""),
+                        staging_path=str(out.get("staging_path") or ""),
+                    )
             elif st == "error":
                 report["distills_errors"] += 1
             else:

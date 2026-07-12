@@ -13,7 +13,7 @@ Agent answers **internally** (do not dump files unless user asks). If any answer
 ```markdown
 - [ ] GLOBAL_CONTEXT — name active projects from Projects table
 - [ ] conventions — state one cross-project rule (one sentence)
-- [ ] distill Next step — state forward pointer from `chats/projects/<slug>.md`
+- [ ] Open threads — state forward pointer from routing-hint or `chats/projects/<slug>.md`
 - [ ] feedback/fails — name one `_superseded_` lesson (if proposing plans / CI / deploy)
 ```
 
@@ -34,7 +34,7 @@ User asks **before** agent reads files:
 | Lists projects from "memory" without reading | ❌ drift — agent ignoring hub |
 | Silent or generic | ⚠️ re-run layer verification |
 
-After drift check, proceed normally: read distill ## Next step → act.
+After drift check, proceed normally: read Open threads (routing-hint) → act.
 
 ---
 
@@ -52,7 +52,7 @@ Fix all ❌ before relying on memory for big decisions.
 
 | Situation | Read (usually enough) |
 |-----------|------------------------|
-| Continue known repo | `chats/projects/<slug>.md` → ## Next step |
+| Continue known repo | `memory-routing-hint.py` or `chats/projects/<slug>.md` → ## Open threads |
 | Propose CI / deploy / architecture | `feedback/fails.md` → `wins.md` → `preferences.md` |
 | Cross-project rules | `conventions.md` |
 

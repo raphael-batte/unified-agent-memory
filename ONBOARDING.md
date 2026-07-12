@@ -46,25 +46,25 @@ bash scripts/migrate-memory.sh --from /path/to/backup   # reinstall restore (mer
 |--------|-----|
 | `chats/manifest.json` | Tracks processed Cursor chats |
 | `chats/merge-staging/` | Raw candidates per chat (for agent review) |
-| `chats/projects/<slug>.md` | **Recent**, **`## Next step`** (pointer or explicit placeholder + chat drill link), optional **`[bootstrap]` Decisions** on first sync |
+| `chats/projects/<slug>.md` | **Recent**, **`## Open threads`** (curated + optional `[auto]` drafts), optional **`[bootstrap]` Decisions** on first sync |
 | `context/GLOBAL_CONTEXT.md` → **Projects** | Rows from distilled workspaces |
-| Boundary hooks | `sessionStart` / `sessionEnd` / `preCompact` re-distill stale chats and refresh **Next step** |
+| Boundary hooks | `sessionStart` / `sessionEnd` / `preCompact` re-distill stale chats; may draft `[auto]` Open threads |
 
-**Forward pointer** — one file per project slug under `chats/projects/` (`## Next step`).
+**Forward pointer** — **`## Open threads`** in each project distill + rolling 30d cross-hub via `memory-routing-hint.py`. Curate: `memory-pointer.py add-thread <project> <label> "…"`.
 
 ### Session routing (automatic)
 
 After install, **`agent-memory-routing.mdc`** is active globally (`alwaysApply: true`):
 
 - Resolves your workspace → distill slug via `scripts/memory-routing-hint.py`
-- Agent reads **## Next step** before answering (including off-topic questions in a new chat)
+- Agent reads rolling **Open threads** before answering (including off-topic questions in a new chat)
 - No per-project setup required; optional legacy override: `init-project-rules.sh --project <path>`
 
 ### After sync — agent should offer (optional)
 
 1. **`fill Me in GLOBAL_CONTEXT from our chats`**
 2. **Review `[bootstrap]` Decisions** — semantic merge from `merge-staging/`
-3. **Curate `## Next step`** if placeholder `[?]` / `_No forward pointer._` — or drill chat link first, then edit
+3. **Curate `## Open threads`** — replace `[auto]` drafts via `add-thread` or semantic-merge; drill `[title](uuid)` in Recent if thread is vague
 
 Manual sync:
 
@@ -129,7 +129,7 @@ Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/`
 | verify failed | `memory-doctor.py --memory-home "$MEMORY_HOME"` |
 | Hooks silent | Reload Cursor; check plugin at `~/.cursor/plugins/local/agent-memory` |
 | Periodic sync | `bash scripts/install-periodic-sync.sh` — every 2h when Cursor is open (`scripts/sync-if-cursor-open.sh`) |
-| Stale Next step | Close chat (sessionEnd distill) or `list-chats.py --pending` |
+| Stale Open threads | Close chat (sessionEnd distill) or `list-chats.py --pending`; curate `[auto]` via add-thread |
 | Wrong paths after move | `memory-doctor.py --fix`; check anchor `memory_home` |
 | Rule reads wrong distill | `python3 scripts/memory-routing-hint.py --json .` — check slug; or `init-project-rules.sh --slug <name-from-chats/projects>` (optional per-repo override) |
 

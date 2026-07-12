@@ -116,7 +116,7 @@ python3 scripts/verify-memory.py --memory-home "$MEMORY_HOME" --strict-secrets
 
 ## 6. Forward pointer
 
-`chats/projects/<slug>.md` **## Next step** is updated automatically on boundary distills (`lib/forward_pointer.py`). Migrate any per-repo “what’s next” notes into the distill or delete obsolete files.
+`chats/projects/<slug>.md` **## Open threads** is curated via `memory-pointer.py add-thread` (and optional `[auto]` drafts on boundary distills). Migrate any per-repo “what’s next” notes into Open threads or delete obsolete files.
 
 ---
 

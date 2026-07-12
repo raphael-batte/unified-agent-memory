@@ -6,6 +6,19 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-07-12
+
+### Added
+
+- **`[auto]` Open threads draft** — `draft_open_threads_after_apply()` runs after `apply_extract_to_project` in the distill-merge/cron pipeline (not inside apply); tail topic segment only; path-first `direction_label`; junk filter
+- **Tier-aware upsert** — `upsert_open_thread_tiered()`: `[auto]` never overwrites curated; cap evicts oldest `[auto]` first; one auto slot can replace a prior auto at cap
+- **Curation queue** — `needs_enqueue()` + `enqueue_open_thread_draft()` with `kind="open-thread"` when a draft is written; sessionStart lists open-thread pending items
+
+### Changed
+
+- `sync-memory.py` enqueues open-thread curation after cron distill when draft lands
+- `boundary_hooks` sessionEnd enqueues `kind="open-thread"` on auto draft
+
 ## [0.25.0] - 2026-07-12
 
 ### Added

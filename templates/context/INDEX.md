@@ -5,11 +5,11 @@ Skill: **agent-memory** (`context/` routing in [INSTRUCTIONS.md](../../INSTRUCTI
 
 ## When to read
 
-**On demand** — not every session. Default repo work → `chats/projects/<slug>.md` ## Next step.
+**On demand** — not every session. Default repo work → `memory-routing-hint.py` or `chats/projects/<slug>.md` **## Open threads**.
 
 | Situation | Read |
 |-----------|------|
-| Continue known project | `chats/projects/<slug>.md` → ## Next step |
+| Continue known project | `memory-routing-hint.py --json .` → open_threads; or `chats/projects/<slug>.md` → **## Open threads** |
 | Unknown project / first hub setup | [GLOBAL_CONTEXT.md](GLOBAL_CONTEXT.md) |
 | Git, CI, deploy, secrets | [conventions.md](conventions.md) |
 | Hosts, paths, environments | [infra.md](infra.md) |
@@ -21,8 +21,7 @@ Skill: **agent-memory** (`context/` routing in [INSTRUCTIONS.md](../../INSTRUCTI
 ```
 context/           who + rules + preferences
 feedback/          what worked/failed (+/−)
-chats/projects/    what we discussed (neutral)
-chats/projects/    ## Next step forward pointer
+chats/projects/    what we discussed + ## Open threads forward pointer
 ```
 
 ## Where to write
@@ -32,7 +31,7 @@ chats/projects/    ## Next step forward pointer
 | New project row | `GLOBAL_CONTEXT.md` |
 | Cross-project rule | `conventions.md` |
 | Host / path | `infra.md` |
-| Session progress | `chats/projects/<slug>.md` → ## Next step |
+| Session progress | `memory-pointer.py add-thread` → `chats/projects/<slug>.md` **## Open threads** |
 | Chat decisions | `chats/projects/<slug>.md` |
 | Rejected / praised approach | `feedback/fails.md` / `wins.md` |
 | Thinking style | `preferences.md` |

@@ -28,6 +28,7 @@ from lib.defaults import APPLY_REVIEW_MAX_DAYS  # noqa: E402
 from lib.distill_links import enrich_extract, recent_bullet  # noqa: E402
 from lib.memory_config import resolve_memory_home  # noqa: E402
 from lib.agent_live_distill import enrich_extract_with_agent_live  # noqa: E402
+from lib.open_thread_draft import draft_open_threads_after_apply  # noqa: E402
 from lib.novelty import collect_prior_texts, filter_novel_items  # noqa: E402
 from lib.project_merge import apply_extract_to_project  # noqa: E402
 from lib.timestamps import now_iso, staging_date_slug  # noqa: E402
@@ -330,6 +331,15 @@ def run_merge(
             manifest_entry=existing,
         )
         result["apply_result"] = apply_result
+        draft_result = draft_open_threads_after_apply(
+            project_path,
+            extract,
+            today=entry["distilled_at"][:10]
+            if entry.get("distilled_at")
+            else None,
+        )
+        result["draft_result"] = draft_result
+        apply_result["draft_result"] = draft_result
         if apply_result.get("pointer_preserved_curated") and apply_result.get(
             "pointer_candidate"
         ):

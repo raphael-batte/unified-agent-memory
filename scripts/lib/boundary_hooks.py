@@ -512,7 +512,10 @@ def handle_boundary(
 
     if event == "sessionEnd" and distill.get("status") == "distilled":
         apply_result = distill.get("apply_result") or {}
-        should_queue, reason = needs_enqueue(apply_result)
+        draft_result = distill.get("draft_result") or {}
+        should_queue, reason = needs_enqueue(
+            apply_result, draft_result=draft_result
+        )
         if should_queue:
             enqueue_pointer(
                 memory_home,
@@ -521,7 +524,7 @@ def handle_boundary(
                 reason=reason,
                 workspace_slug=str(distill.get("slug") or ""),
                 staging_path=str(distill.get("staging_path") or ""),
-                pointer_confidence=apply_result.get("pointer_confidence"),
+                kind="open-thread",
             )
 
     if event == "preCompact":

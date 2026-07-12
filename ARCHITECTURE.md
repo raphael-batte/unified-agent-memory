@@ -36,25 +36,28 @@ Each layer answers a different question. **Do not load all layers every session.
 | **Global context** | `$MEMORY_HOME/context/` | Who? Which projects? Rules? Infra? | ~30–80 lines/file |
 | **Preferences** | `context/preferences.md` | How does the user think and communicate? | ~40 lines |
 | **Feedback** | `feedback/wins.md`, `fails.md` | What worked (+) / failed (−) across sessions? | grows; archive ~80 lines |
-| **Chat memory** | `chats/projects/<slug>.md` | History + **`## Next step`** forward pointer | ~100 lines/file |
+| **Chat memory** | `chats/projects/<slug>.md` | History + **`## Open threads`** forward pointer | ~100 lines/file |
 
 **Separation of concerns:**
 
 - `conventions.md` — normative rules (deploy policy, git flow)
 - `preferences.md` — style and thinking (not rules)
 - `feedback/` — empirical lessons; `_superseded_` when a fail became a convention
-- `chats/projects/` — distill history; **Next step** = where to continue (auto on hooks)
+- `chats/projects/` — distill history; **Open threads** = where to continue (curated + optional `[auto]` drafts)
 
 ## Routing (session start)
 
 ```
-Continue known repo     → chats/projects/<slug>.md → ## Next step first
-No pointer / [?]        → mandatory drill: [title](uuid) in Next step → transcript tail
+Continue known repo     → memory-routing-hint.py → open_threads (rolling 30d, cross-hub)
+                         → chats/projects/<slug>.md → ## Open threads
+Thread vague / stale    → drill [title](uuid) in ## Recent → transcript tail
 Past decisions / why    → distill ## Decisions; chat link if still thin
 New or unknown project  → GLOBAL_CONTEXT.md → Projects table
 Deploy / CI / git task  → conventions.md
 Proposing architecture  → fails + wins + preferences (Flow E)
 ```
+
+**`## Next step` is deprecated** (v0.24+). Do not write there.
 
 Boundary hooks distill on `sessionStart` (first-run + catch-up), `workspaceOpen`, `sessionEnd`, `preCompact`. Manual batch: `sync-memory.py`.
 
@@ -69,16 +72,18 @@ transcript jsonl
     → distill-extract.py     structured JSON (segments, summary_bullets, decision_candidates)
     → distill-merge.py       manifest + merge-staging/*.md
     → semantic-merge skill   agent curates ## Decisions ([curated] bullets)
-    → apply on hooks/sync     Recent ≤3 + Next step + novel [extracted] (cap → archive)
+    → apply on hooks/sync     Recent ≤3 + novel [extracted] (cap → archive)
+    → open_thread_draft       optional [auto] ## Open threads from tail segment
     → verify-memory.py       integrity + secrets scan
 ```
 
 - **Staging** — Raw candidates, topic segments, decision candidates, rolling summary (agent review).
 - **`--apply`** — mechanical bookkeeping only; does not clobber curated Decisions (v0.5+).
+- **Open threads** — curated via `memory-pointer.py add-thread`; distill writes `[auto]` drafts only; auto never overwrites curated (v0.26+).
 - **manifest.json** — `distilled_at` + watermark (`watermark_user_count`, `watermark_tail_hash`) for content-aware re-distill.
 - **Long chats** — topic segmentation + importance-weighted per-segment selection; optional map-reduce for very long threads.
 - **`[extracted]`** — precision-filtered decisions (cue-at-start, junk markers); max 30 per project file; FIFO evict to `chats/archive/<slug>-decisions.md`.
-- **Pointer** — heuristics in hooks; agent curates via `pointer-curate-prompt.md` when confidence low.
+- **Curation queue** — sessionStart lists pending `[auto]` open-thread drafts for semantic-merge / add-thread.
 - **Health** — `memory-health.py` + weekly baseline; not just structure/secrets verify.
 
 Details: [INSTRUCTIONS.md → Chat memory](INSTRUCTIONS.md#chat-memory-chats) · [MIGRATION.md](MIGRATION.md).
@@ -105,8 +110,8 @@ memory-search.py "query" [--layer chats,context,feedback] [--deep] [--top 8]
 
 | Hook | Role |
 |------|------|
-| `sessionStart` / `workspaceOpen` | First-run bootstrap; catch-up distill |
-| `sessionEnd` / `preCompact` | Distill current chat; pointer queue |
+| `sessionStart` / `workspaceOpen` | First-run bootstrap; catch-up distill; open-thread curation reminders |
+| `sessionEnd` / `preCompact` | Distill current chat; enqueue open-thread curation on `[auto]` draft |
 | `afterFileEdit` | Log chats hub edits |
 
 See [docs/SYNC-AND-TRIGGERS.md](docs/SYNC-AND-TRIGGERS.md) · [ONBOARDING.md](ONBOARDING.md).
@@ -125,6 +130,7 @@ CI in this repo: tests + pinned gitleaks on every push; GitHub Release on tag.
 ## Rotation
 
 - **Chat `[extracted]` cap** — automatic FIFO to `chats/archive/<slug>-decisions.md` (default 30); `compact_archive_decisions()` dedupes archive files.
+- **Open threads cap** — 7 bullets; oldest `[auto]` evicted first at cap.
 - **Manual rotation** — when `projects/<slug>.md` or context/feedback files exceed ~80–100 lines, agent archives older blocks to dated files and keeps INDEX pointers.
 
 ## What this is not

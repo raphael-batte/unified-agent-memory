@@ -22,15 +22,15 @@ Last lines contain the sessionEnd checklist (also in stderr during hook run).
 
 | Step | Action |
 |------|--------|
-| Forward pointer | Hooks write regex **## Next step** — if `[?]` / `_No forward pointer._` / low-confidence hook msg → `pointer-curate-prompt.md` |
+| Forward pointer | Curate **## Open threads** — replace `[auto]` drafts via `add-thread` or `pointer-curate-prompt.md` |
 | Distill | Review `merge-staging/`; curate **## Decisions** from staging |
-| Fallback | If distill lacks detail → open chat link `[title](uuid)` in ## Recent |
+| Fallback | If thread is vague → open chat link `[title](uuid)` in ## Recent |
 | Verify | `verify-memory.py --memory-home $MEMORY_HOME` |
 | Pending | `list-chats.py --pending` — note unprocessed chats |
 
 ## 3. Semantic merge (not optional for new distill)
 
-- `--apply` updates **Recent** + **Next step** — never replaces agent curation of `## Decisions`
+- `--apply` updates **Recent** + optional `[auto]` Open threads — never replaces agent curation of `## Decisions`
 - Use skill **semantic-merge** + `templates/chats/semantic-merge-prompt.md`
 - Pointer only: `templates/chats/pointer-curate-prompt.md`
 

@@ -1,13 +1,15 @@
 # Sync and boundary triggers
 
-Technical reference for distill-first memory with **forward pointer** (`## Next step`).
+Technical reference for distill-first memory with **forward pointer** (`## Open threads`).
 
 ## Design goals
 
-1. **Distill-first** — `chats/projects/<slug>.md` is primary history and forward pointer.
+1. **Distill-first** — `chats/projects/<slug>.md` is primary history; **`## Open threads`** is the forward pointer.
 2. **Plugin hooks** — bundle `hooks/hooks.json`; no global hooks merge in normal install.
 3. **One skill** — `agent-memory` routes all layers.
-4. **Event-driven** — distill on session boundaries; `apply=True` updates Recent + Next step.
+4. **Event-driven** — distill on session boundaries; `apply=True` updates Recent + optional `[auto]` Open threads draft.
+
+> **`## Next step` is deprecated** (v0.24+). Existing bodies are passthrough-only.
 
 ## Hub config
 
@@ -37,8 +39,8 @@ Anchor (fixed): `~/.cursor/agent-memory/config.json` → `{ "memory_home": "..."
 
 | Cursor event | Script | Action |
 |--------------|--------|--------|
-| `sessionStart` / `workspaceOpen` | `hooks/agent-memory-session-start.sh` | First-run bootstrap; catch-up distill |
-| `sessionEnd` | `hooks/agent-memory-boundary.sh` | Distill + apply → Recent + **Next step** |
+| `sessionStart` / `workspaceOpen` | `hooks/agent-memory-session-start.sh` | First-run bootstrap; catch-up distill; open-thread curation reminders |
+| `sessionEnd` | `hooks/agent-memory-boundary.sh` | Distill + apply → Recent + `[auto]` Open threads draft |
 | `sessionEnd` | `hooks/agent-memory-session-end.sh` | Checklist log |
 | `preCompact` | `hooks/agent-memory-boundary.sh` | Distill + reminder |
 | `afterFileEdit` | `hooks/agent-memory-after-edit.sh` | Log chats hub edits |
@@ -57,16 +59,20 @@ Sentinel: `$MEMORY_HOME/.state/initialized` (set by `first-run-continue` or exis
 2. List pending chats in `--days` window
 3. `order_for_distill()` — **oldest pending first** (scan inventory stays newest-first)
 4. `distill-extract` + `distill-merge` each with `apply=True`, `bootstrap_decisions=True` on first sync (`--apply` merges novel `[extracted]`; FIFO evict to `archive/<slug>-decisions.md`)
-5. Bootstrap `GLOBAL_CONTEXT.md` Projects table
-6. `verify-memory.py`
+5. Enqueue open-thread curation when `[auto]` draft lands
+6. Bootstrap `GLOBAL_CONTEXT.md` Projects table
+7. `verify-memory.py`
 
 Does **not** install legacy global hooks when plugin manifest is present.
 
 CLI: `--scan-only`, `--dry-run`, `--no-hooks`, `--days`, `--limit`.
 
-## Forward pointer
+## Forward pointer (`## Open threads`)
 
-`lib/forward_pointer.py` — heuristics on transcript tail with **confidence** tier. Hooks write `## Next step` mechanically; on placeholder or low confidence, `sessionEnd` emits `user_message` for agent curation.
+- **Curated** — `memory-pointer.py add-thread <project> <label> "…"` upserts `**[label]** text · _upd DATE_`
+- **Auto draft (v0.26+)** — `lib/open_thread_draft.py` after apply: tail topic segment → `[auto]` bullet; never overwrites curated; cap 7 evicts oldest auto first
+- **Rolling view** — `memory-routing-hint.py --json .` unions active threads across all project distills (30d window)
+- **Curation queue** — `sessionStart` lists pending `[auto]` drafts → semantic-merge / add-thread
 
 ## Distill freshness (v0.10+)
 
@@ -80,9 +86,11 @@ CLI: `--scan-only`, `--dry-run`, `--no-hooks`, `--days`, `--limit`.
 | Module | Role |
 |--------|------|
 | `lib/pending_chats.py` | Scan + pending list; `order_for_distill()` oldest-first |
-| `lib/project_merge.py` | `[extracted]` merge, cap, archive evict |
+| `lib/project_merge.py` | `[extracted]` merge, cap, archive evict; tiered Open threads upsert |
+| `lib/open_thread_draft.py` | `[auto]` Open threads draft after apply |
+| `lib/open_threads.py` | Rolling 30d cross-hub thread collection |
 | `lib/hub_search.py` | BM25 over projects + archive + context |
 | `lib/boundary_hooks.py` | Hook dispatch |
 | `lib/first_run.py` | Plugin first-run bootstrap |
 | `lib/global_context_bootstrap.py` | Projects table |
-| `lib/forward_pointer.py` | ## Next step heuristics |
+| `lib/pointer_curation_queue.py` | Open-thread curation queue |
