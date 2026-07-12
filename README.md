@@ -158,7 +158,7 @@ flowchart TB
 
 ```bash
 python3 scripts/memory-routing-hint.py --json .          # rolling Open threads
-python3 scripts/memory-pointer.py add-thread myproj sdm "on carousel filter swap"
+python3 scripts/memory-pointer.py add-thread myproj widget-ui "on carousel filter swap"
 python3 scripts/sync-memory.py --scan-only
 python3 scripts/sync-memory.py --days 90 --limit 30
 python3 scripts/memory-search.py "deploy ssl" --memory-home "$MEMORY_HOME" --top 8

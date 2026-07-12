@@ -100,7 +100,7 @@ class TestDecisionExtract(unittest.TestCase):
 
     def test_rejects_lighthouse_json(self) -> None:
         msgs = [
-            '{ "lighthouseVersion": "13.0.2", "requestedUrl": "https://https://example.org//" }'
+            '{ "lighthouseVersion": "13.0.2", "requestedUrl": "https://example.org/" }'
         ]
         out, stats = extract_decision_candidates(msgs, max_items=6)
         self.assertEqual(out, [])

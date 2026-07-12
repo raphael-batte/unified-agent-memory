@@ -47,8 +47,7 @@ class TestRoutingIntegration(unittest.TestCase):
             files = sorted(p.name for p in projects.glob("*.md"))
             self.assertEqual(files, ["example.md"])
             text = (projects / "example.md").read_text(encoding="utf-8")
-            for banned in ("acme", "alpha-hub", "steaklover"):
-                self.assertNotIn(banned, text.lower())
+            self.assertIn("example-dir", text)
 
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ class TestRollingOpenThreads(unittest.TestCase):
             _project(hub, "beta-app", "- **[admin]** paginator · _upd 2026-07-05_")
             got = collect_open_threads(hub, days=30, now=NOW)
             labels = {(t.slug, t.label) for t in got}
-            # SEO thread lives in alpha-hub.md but is surfaced hub-wide
+            # Cross-topic thread in alpha-hub.md is surfaced hub-wide
             self.assertIn(("alpha-hub", "beta-seo"), labels)
             self.assertIn(("beta-app", "admin"), labels)
 
@@ -46,7 +46,7 @@ class TestRollingOpenThreads(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)
             _project(hub, "alpha-hub", "- **[beta-seo]** defer head · _upd 2026-07-11_")
-            # Asking from the beta-app workspace still sees the alpha-hub thread
+            # Asking from beta-app workspace still sees the alpha-hub thread
             got = collect_open_threads(hub, days=30, now=NOW, priority_slug="beta-app")
             self.assertTrue(any(t.label == "beta-seo" for t in got))
 

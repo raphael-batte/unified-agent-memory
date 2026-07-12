@@ -44,6 +44,11 @@ Enable branch protection on `main`: require these checks before merge.
 - Passwords, tokens, API keys anywhere in the repo
 - User-specific paths unless in examples with placeholders
 
+## Generic plugin rule (mandatory)
+
+Examples and fixtures must use **fictional names only** (`alpha-hub`, `beta-app`, `widget-ui`, `work/acme/widget-v2`, `https://example.org/`).  
+Applies to `scripts/`, `tests/`, `templates/`, `docs/`, and top-level markdown. CI: `tests/test_no_hardcoded_paths.py` (paths + fictional examples).
+
 ## Code style
 
 - Framework repo: **English only** in docs, scripts, skills (enforced by tests).

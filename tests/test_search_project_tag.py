@@ -1,9 +1,9 @@
 """Ranking eval for project-tag search (hole #3).
 
 Guards against silent ranking regressions: each case asserts the expected doc
-outranks a distractor. The headline case is the real failure — a Cross-project SEO
-thread physically stored in alpha-hub.md must beat agent-memory noise on a
-"beta-app" query, because the topic lives in the **[label]**, not the filename.
+outranks a distractor. The headline case — a cross-topic thread physically stored
+in alpha-hub.md must beat agent-memory noise on a "beta" query, because the topic
+lives in the **[label]**, not the filename.
 """
 
 from __future__ import annotations
@@ -32,13 +32,13 @@ class TestTagTokenHelpers(unittest.TestCase):
 
     def test_label_tokens_from_open_thread(self) -> None:
         toks = _label_tokens("**[beta-seo]** defer head · _upd 2026-07-11_")
-        self.assertIn("stea", toks)  # prefix-keyed
+        self.assertIn("beta", toks)
         self.assertIn("seo", toks)
 
 
 class TestProjectTagRanking(unittest.TestCase):
     def test_label_bridges_workspace_vs_topic(self) -> None:
-        # THE case: Cross-project SEO recorded under the alpha-hub workspace file.
+        # Cross-topic thread recorded under the alpha-hub workspace file.
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)
             _write(
@@ -54,7 +54,7 @@ class TestProjectTagRanking(unittest.TestCase):
                 "_Last updated: 2026-07-11_\n\n"
                 "## Decisions\n\n- [curated] canonical head defer LCP cover tuning notes\n",
             )
-            result = search_hub(hub, "beta-app head defer", top=5, log_metrics=False)
+            result = search_hub(hub, "beta head defer", top=5, log_metrics=False)
             hits = result["hits"]
             self.assertTrue(hits, "no hits")
             self.assertIn("beta-seo", hits[0]["text"],
@@ -75,7 +75,7 @@ class TestProjectTagRanking(unittest.TestCase):
                 "_Last updated: 2026-07-10_\n\n"
                 "## Decisions\n\n- [curated] paginator fix on admin pages elsewhere too\n",
             )
-            result = search_hub(hub, "beta-app paginator", top=5, log_metrics=False)
+            result = search_hub(hub, "beta paginator", top=5, log_metrics=False)
             self.assertIn("beta-app.md", result["hits"][0]["path"])
 
     def test_tag_only_match_surfaces_without_body_hit(self) -> None:
@@ -88,7 +88,7 @@ class TestProjectTagRanking(unittest.TestCase):
                 "_Last updated: 2026-07-11_\n\n"
                 "## Open threads\n\n- **[beta-seo]** wire the cover crop · _upd 2026-07-11_\n",
             )
-            result = search_hub(hub, "beta-app", top=5, log_metrics=False)
+            result = search_hub(hub, "beta", top=5, log_metrics=False)
             self.assertTrue(any("beta-seo" in h["text"] for h in result["hits"]))
 
     def test_unrelated_query_does_not_falsely_match_slug(self) -> None:

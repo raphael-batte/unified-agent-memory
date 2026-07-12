@@ -23,7 +23,7 @@ Use when a session had a clear outcome but **## Open threads** was not updated.
 
 | Bad | Good |
 |-----|------|
-| "Continue working on the project" | `**[widget-ui]** Footer deploy OK on test — smoke mobile accordion` |
+| "Continue working on the project" | `**[widget-ui]** Footer deploy OK on staging — smoke mobile accordion` |
 | Verbatim last user question | Paraphrased state: `**[agent-memory]** PR #1 merged; add-thread ops on hub` |
 
 ## Do not use
