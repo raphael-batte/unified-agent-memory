@@ -52,7 +52,20 @@ def anchor_file() -> Path:
 
 
 def default_memory_home() -> Path:
-    return anchor_dir()
+    """Neutral shared hub — it belongs to no single environment."""
+    return _anchor_root() / ".agent-memory"
+
+
+def _legacy_hub_at_anchor() -> Path | None:
+    """Older installs kept hub data inside the anchor directory itself.
+
+    Detect that layout so an upgrade keeps reading the existing memory instead of
+    silently starting an empty hub at the new default path.
+    """
+    for directory in anchor_dirs():
+        if (directory / "chats").is_dir() or (directory / "context").is_dir():
+            return directory
+    return None
 
 
 def anchor_points_to_initialized_hub() -> Path | None:
@@ -220,6 +233,9 @@ def resolve_memory_home(
     anchored = memory_home_from_anchor()
     if anchored is not None:
         return anchored.expanduser().resolve()
+    legacy_at_anchor = _legacy_hub_at_anchor()
+    if legacy_at_anchor is not None:
+        return legacy_at_anchor.resolve()
     legacy_hook = _load_legacy_hook_env()
     hook_hub = legacy_hook.get("MEMORY_HOME", "").strip()
     if hook_hub:

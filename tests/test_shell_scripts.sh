@@ -94,12 +94,24 @@ sync_hooks="$(python3 "$ROOT/scripts/sync-memory.py" --memory-home "$NEW_HUB" \
 echo "$sync_hooks" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['hooks'].get('reason')=='plugin_hooks_in_bundle'"
 
 chmod +x "$ROOT/scripts/sync-if-cursor-open.sh"
+# The gate depends on whether Cursor happens to be running on this machine, so
+# assert whichever branch actually applies — asserting only the skip branch made
+# this test fail for anyone running Cursor.
 sync_skip="$(bash "$ROOT/scripts/sync-if-cursor-open.sh" --dry-run 2>&1)"
-echo "$sync_skip" | grep -q "skip: Cursor not running"
-sync_force="$(AGENT_MEMORY_SYNC_FORCE=1 bash "$ROOT/scripts/sync-if-cursor-open.sh" --dry-run \
-  --force 2>&1 || true)"
-# empty hub → no pending
+if pgrep -x Cursor >/dev/null 2>&1 ||
+  pgrep -f "/Applications/Cursor.app/Contents/MacOS/Cursor" >/dev/null 2>&1; then
+  echo "$sync_skip" | grep -qE "dry-run: would sync|skip: no pending chats"
+else
+  echo "$sync_skip" | grep -q "skip: Cursor not running"
+fi
+
+# --force must bypass the gate regardless of what is running.
+sync_forced="$(bash "$ROOT/scripts/sync-if-cursor-open.sh" --dry-run --force 2>&1)"
+echo "$sync_forced" | grep -qvE "skip: Cursor not running"
+# Empty hub AND empty transcript roots → no pending. Pointing every environment at
+# an empty directory keeps this independent of what is on the developer's machine.
 sync_force_out="$(MEMORY_HOME="$NEW_HUB" AGENT_MEMORY_SYNC_FORCE=1 \
+  AGENT_MEMORY_CURSOR_PROJECTS="$EMPTY_PR" AGENT_MEMORY_CLAUDE_PROJECTS="$EMPTY_PR" \
   bash "$ROOT/scripts/sync-if-cursor-open.sh" --dry-run 2>&1)"
 echo "$sync_force_out" | grep -q "skip: no pending"
 
