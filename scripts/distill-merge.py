@@ -208,7 +208,7 @@ def run_merge(
     review_max_days: int = APPLY_REVIEW_MAX_DAYS,
     bootstrap_decisions: bool = False,
     project_override: str | None = None,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
 ) -> dict:
     manifest_path = memory_home / "chats" / "manifest.json"
     manifest = load_manifest(manifest_path)
@@ -426,7 +426,7 @@ def main() -> int:
         projects_root = (
             Path(args.projects_root).expanduser().resolve()
             if args.projects_root
-            else DEFAULT_PROJECTS_ROOT
+            else None  # None = every installed environment
         )
         jsonl = find_transcript(
             chat_id, projects_root, memory_home=memory_home

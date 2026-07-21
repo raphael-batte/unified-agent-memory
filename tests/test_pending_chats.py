@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS))
@@ -15,6 +17,121 @@ sys.path.insert(0, str(SCRIPTS))
 from helpers import minimal_hub
 
 from lib import pending_chats as pc  # noqa: E402
+
+FIXTURES = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
+
+
+def _make_cursor_transcript(root: Path, workspace: str, chat_id: str) -> Path:
+    d = root / workspace / "agent-transcripts"
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / f"{chat_id}.jsonl"
+    path.write_text(
+        (FIXTURES / "sample-chat.jsonl").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    return path
+
+
+def _make_claude_transcript(root: Path, workspace: str, chat_id: str) -> Path:
+    d = root / workspace
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / f"{chat_id}.jsonl"
+    path.write_text(
+        (FIXTURES / "claude-chat.jsonl").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    return path
+
+
+class TestMultiEnvScan(unittest.TestCase):
+    """The hub is shared, so a scan must cover every installed environment."""
+
+    def test_scan_covers_both_envs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cursor_root = root / "cursor-projects"
+            claude_root = root / "claude-projects"
+            _make_cursor_transcript(cursor_root, "Users-me-Work-example-app", "chat-cursor-1")
+            _make_claude_transcript(claude_root, "-home-me-Work-example-app", "chat-claude-1")
+
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "AGENT_MEMORY_CURSOR_PROJECTS": str(cursor_root),
+                    "AGENT_MEMORY_CLAUDE_PROJECTS": str(claude_root),
+                },
+                clear=False,
+            ):
+                rows = pc.scan_transcript_rows()
+
+            by_env = {r["env"]: r for r in rows}
+            self.assertEqual(set(by_env), {"cursor", "claude"})
+            self.assertEqual(by_env["cursor"]["id"], "chat-cursor-1")
+            self.assertEqual(by_env["claude"]["id"], "chat-claude-1")
+
+    def test_project_slug_shared_across_envs(self) -> None:
+        """Same repo in both environments must land on one project file."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cursor_root = root / "cursor-projects"
+            claude_root = root / "claude-projects"
+            _make_cursor_transcript(cursor_root, "Users-me-Work-example-app", "chat-cursor-1")
+            _make_claude_transcript(claude_root, "-home-me-Work-example-app", "chat-claude-1")
+
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "AGENT_MEMORY_CURSOR_PROJECTS": str(cursor_root),
+                    "AGENT_MEMORY_CLAUDE_PROJECTS": str(claude_root),
+                },
+                clear=False,
+            ):
+                rows = pc.scan_transcript_rows()
+
+            self.assertEqual({r["project"] for r in rows}, {"example-app"})
+
+    def test_missing_env_root_is_skipped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cursor_root = root / "cursor-projects"
+            _make_cursor_transcript(cursor_root, "Users-me-Work-example-app", "chat-cursor-1")
+
+            with mock.patch.dict(
+                os.environ,
+                {
+                    "AGENT_MEMORY_CURSOR_PROJECTS": str(cursor_root),
+                    "AGENT_MEMORY_CLAUDE_PROJECTS": str(root / "absent"),
+                },
+                clear=False,
+            ):
+                rows = pc.scan_transcript_rows()
+
+            self.assertEqual([r["env"] for r in rows], ["cursor"])
+
+    def test_explicit_root_probes_both_layouts(self) -> None:
+        """Callers passing a single root keep working — layouts are disjoint."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _make_cursor_transcript(root, "Users-me-Work-example-app", "chat-cursor-1")
+            rows = pc.scan_transcript_rows(root)
+            self.assertEqual([r["env"] for r in rows], ["cursor"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _make_claude_transcript(root, "-home-me-Work-example-app", "chat-claude-1")
+            rows = pc.scan_transcript_rows(root)
+            self.assertEqual([r["env"] for r in rows], ["claude"])
+
+    def test_subagent_transcripts_ignored(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _make_cursor_transcript(root, "Users-me-Work-example-app", "chat-cursor-1")
+            sub = root / "Users-me-Work-example-app" / "agent-transcripts" / "subagents"
+            sub.mkdir(parents=True)
+            (sub / "chat-sub-1.jsonl").write_text(
+                (FIXTURES / "sample-chat.jsonl").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            rows = pc.scan_transcript_rows(root)
+            self.assertEqual([r["id"] for r in rows], ["chat-cursor-1"])
 
 
 class TestPendingChats(unittest.TestCase):

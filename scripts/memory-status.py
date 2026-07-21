@@ -22,7 +22,6 @@ from lib.memory_config import (  # noqa: E402
 )
 
 ROTATE_LINES = ROTATION_WARN_LINES
-PROJECTS_ROOT = Path.home() / ".cursor/projects"
 CURSOR_SKILLS = Path(
     os.environ.get("CURSOR_SKILLS", str(Path.home() / ".cursor/skills"))
 ).expanduser()
@@ -170,7 +169,7 @@ def rotation_warnings(memory_home: Path, threshold: int) -> list[str]:
 
 def pending_chats_count(memory_home: Path) -> tuple[int, int]:
     lc = load_script_module("list_chats", "list-chats.py")
-    processed, pending, _total = lc.chat_counts(memory_home, PROJECTS_ROOT)
+    processed, pending, _total = lc.chat_counts(memory_home)
     return processed, pending
 
 

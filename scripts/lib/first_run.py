@@ -210,7 +210,7 @@ def run_distill_batch(
     scope: dict[str, Any],
     *,
     plugin_root: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
 ) -> dict[str, Any]:
     days = int(scope.get("days", 90))
     limit = scope.get("limit")
@@ -285,7 +285,7 @@ def handle_first_run(
     *,
     memory_home: Path,
     plugin_root: Path | None = None,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
     script_file: str | Path | None = None,
 ) -> dict[str, Any] | None:
     """

@@ -28,8 +28,23 @@ class CursorEnv(AgentEnv):
     def build_transcript_index(self, root: Path | None = None) -> dict[str, Path]:
         return transcript_cursor.build_transcript_index(root or self.transcript_root())
 
-    def find_transcript(self, uuid: str, root: Path | None = None) -> Path | None:
-        return transcript_cursor.find_transcript(uuid, root or self.transcript_root())
+    def find_transcript(
+        self, uuid: str, root: Path | None = None, *, use_cache: bool = True
+    ) -> Path | None:
+        return transcript_cursor.find_transcript(
+            uuid, root or self.transcript_root(), use_cache=use_cache
+        )
+
+    def workspace_from_path(self, jsonl: Path, root: Path | None = None) -> str:
+        """Layout: <root>/<workspace>/agent-transcripts/[…]/<chat>.jsonl"""
+        found = transcript_cursor.workspace_from_path(jsonl, root or self.transcript_root())
+        if found != "unknown":
+            return found
+        parts = jsonl.parts
+        return parts[-4] if len(parts) >= 4 else "unknown"
+
+    def is_ignored(self, jsonl: Path) -> bool:
+        return "/subagents/" in str(jsonl)
 
     def anchor_dir(self) -> Path:
         return Path.home() / ".cursor" / "agent-memory"

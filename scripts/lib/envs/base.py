@@ -66,8 +66,18 @@ class AgentEnv:
         """Map chat/session id -> newest transcript path."""
         raise NotImplementedError
 
-    def find_transcript(self, uuid: str, root: Path | None = None) -> Path | None:
+    def find_transcript(
+        self, uuid: str, root: Path | None = None, *, use_cache: bool = True
+    ) -> Path | None:
         raise NotImplementedError
+
+    def workspace_from_path(self, jsonl: Path, root: Path | None = None) -> str:
+        """Workspace folder id owning this transcript — layout specific."""
+        raise NotImplementedError
+
+    def is_ignored(self, jsonl: Path) -> bool:
+        """Transcripts that exist but are not this conversation's history."""
+        return False
 
     # --- hub anchor ---
 

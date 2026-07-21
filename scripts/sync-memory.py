@@ -77,7 +77,7 @@ def _install_hooks(framework_root: Path) -> dict:
 def run_scan(
     *,
     memory_home: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
 ) -> dict:
     """Fast chat inventory — ask user before distill."""
     return scan_chat_stats(memory_home, projects_root=projects_root)
@@ -110,7 +110,7 @@ def run_sync(
     days: int = DEFAULT_DAYS,
     dry_run: bool = False,
     install_hooks: bool = True,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
     limit: int | None = None,
     strategy: str = "auto",
 ) -> dict:
@@ -272,7 +272,7 @@ def main() -> int:
     projects_root = (
         Path(args.projects_root).expanduser().resolve()
         if args.projects_root
-        else DEFAULT_PROJECTS_ROOT
+        else None  # None = every installed environment
     )
 
     if args.scan_only:

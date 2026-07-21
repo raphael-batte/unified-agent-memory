@@ -56,7 +56,7 @@ def main() -> int:
         projects_root = (
             Path(args.projects_root).expanduser().resolve()
             if args.projects_root
-            else DEFAULT_PROJECTS_ROOT
+            else None  # None = every installed environment
         )
         jsonl = find_transcript(chat_id, projects_root, memory_home=memory_home)
         if jsonl is None:

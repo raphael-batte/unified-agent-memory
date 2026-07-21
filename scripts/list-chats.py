@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""List Cursor chat transcripts vs MEMORY_HOME/chats/manifest.json."""
+"""List agent chat transcripts (all environments) vs MEMORY_HOME/chats/manifest.json."""
 
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -14,56 +12,42 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from lib.chats_manifest import load_manifest, processed_by_id  # noqa: E402
 from lib.memory_config import resolve_memory_home  # noqa: E402
+from lib.pending_chats import scan_transcript_rows  # noqa: E402
 from lib.timestamps import transcript_is_newer_than_distill  # noqa: E402
-from lib.transcript_cursor import (  # noqa: E402
-    build_transcript_index,
-    normalize_user_text,
-    workspace_slug,
-)
-
-PROJECTS_ROOT = Path.home() / ".cursor/projects"
+from lib.transcript_cursor import TranscriptSchemaError  # noqa: E402
+from lib.transcript_parse import parse_transcript  # noqa: E402
 
 
 def first_user_query(jsonl: Path) -> str:
-    for line in jsonl.read_text(encoding="utf-8", errors="replace").splitlines():
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if obj.get("role") != "user":
-            continue
-        for block in obj.get("message", {}).get("content", []):
-            if block.get("type") != "text":
-                continue
-            text = normalize_user_text(block.get("text", ""))
-            if text and not text.startswith("["):
-                return text[:140]
-    return "(no user text)"
+    """First real user message — via the shared parser, so any environment works."""
+    try:
+        texts = parse_transcript(jsonl).user_texts()
+    except (TranscriptSchemaError, OSError):
+        return "(no user text)"
+    return texts[0][:140] if texts else "(no user text)"
 
 
-def scan_transcripts(projects_root: Path = PROJECTS_ROOT) -> list[dict]:
+def scan_transcripts(projects_root: Path | None = None) -> list[dict]:
+    """Newest-first inventory across every installed environment."""
     rows = []
-    index = build_transcript_index(projects_root)
-    for chat_id, jsonl in sorted(index.items(), key=lambda kv: kv[1].stat().st_mtime, reverse=True):
-        if "/subagents/" in str(jsonl):
-            continue
-        workspace = jsonl.parts[-4] if len(jsonl.parts) >= 4 else "unknown"
-        st = jsonl.stat()
+    for row in scan_transcript_rows(projects_root):
+        jsonl = row["jsonl"]
         rows.append(
             {
-                "id": chat_id,
-                "project": workspace_slug(workspace),
-                "workspace": workspace,
-                "date": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"),
-                "size": st.st_size,
-                "path": str(jsonl),
+                "id": row["id"],
+                "project": row["project"],
+                "workspace": row["workspace"],
+                "env": row["env"],
+                "date": row["date"],
+                "size": jsonl.stat().st_size,
+                "path": row["path"],
                 "first_query": first_user_query(jsonl),
             }
         )
     return rows
 
 
-def chat_counts(memory_home: Path, projects_root: Path = PROJECTS_ROOT) -> tuple[int, int, int]:
+def chat_counts(memory_home: Path, projects_root: Path | None = None) -> tuple[int, int, int]:
     """Return (processed, pending, total)."""
     manifest_path = memory_home / "chats" / "manifest.json"
     rows = scan_transcripts(projects_root)
@@ -88,7 +72,7 @@ def main() -> None:
     projects_root = (
         Path(args.projects_root).expanduser().resolve()
         if args.projects_root
-        else PROJECTS_ROOT
+        else None  # None = scan every installed environment
     )
     manifest_path = mem / "chats/manifest.json"
 

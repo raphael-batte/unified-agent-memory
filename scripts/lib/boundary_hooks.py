@@ -214,7 +214,7 @@ def run_boundary_distill(
     payload: dict[str, Any],
     *,
     memory_home: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
     strategy: str = "auto",
 ) -> dict[str, Any]:
     jsonl = resolve_transcript_jsonl(
@@ -286,7 +286,7 @@ def run_session_start_catchup(
     payload: dict[str, Any],
     *,
     memory_home: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
     days: int = SESSION_START_DAYS,
     limit: int = SESSION_START_CATCHUP_LIMIT,
     strategy: str = "auto",
@@ -370,7 +370,7 @@ def handle_session_start(
     payload: dict[str, Any],
     *,
     memory_home: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
 ) -> dict[str, Any]:
     """sessionStart — first-run bootstrap, catch-up distill, pointer queue."""
     _record_metric(
@@ -483,7 +483,7 @@ def handle_boundary(
     payload: dict[str, Any],
     *,
     memory_home: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
 ) -> dict[str, Any]:
     event = payload.get("hook_event_name", "")
     result: dict[str, Any] = {
@@ -557,7 +557,7 @@ def dispatch(
     proot = (
         projects_root.expanduser().resolve()
         if projects_root
-        else DEFAULT_PROJECTS_ROOT
+        else None  # None = every installed environment
     )
     if mode == "session-start":
         return handle_session_start(payload, memory_home=hub, projects_root=proot)

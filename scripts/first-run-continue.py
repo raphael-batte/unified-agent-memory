@@ -49,7 +49,7 @@ def main() -> int:
     projects_root = (
         Path(args.projects_root).expanduser().resolve()
         if args.projects_root
-        else DEFAULT_PROJECTS_ROOT
+        else None  # None = every installed environment
     )
 
     scope = read_scope(memory_home)

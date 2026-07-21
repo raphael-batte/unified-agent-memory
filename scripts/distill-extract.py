@@ -182,7 +182,7 @@ def keywords_hit(messages: list[str]) -> list[str]:
 def build_extract(
     jsonl: Path,
     *,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
     max_messages: int | None = MAX_DISTILL_MESSAGES,
     strategy: str = "tail",
     memory_home: Path | None = None,
@@ -373,7 +373,7 @@ def main() -> int:
     projects_root = (
         Path(args.projects_root).expanduser().resolve()
         if args.projects_root
-        else DEFAULT_PROJECTS_ROOT
+        else None  # None = every installed environment
     )
     memory_home = None
     if args.memory_home:

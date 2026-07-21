@@ -47,8 +47,17 @@ class ClaudeEnv(AgentEnv):
     def build_transcript_index(self, root: Path | None = None) -> dict[str, Path]:
         return transcript_claude.build_transcript_index(root or self.transcript_root())
 
-    def find_transcript(self, uuid: str, root: Path | None = None) -> Path | None:
-        return transcript_claude.find_transcript(uuid, root or self.transcript_root())
+    def find_transcript(
+        self, uuid: str, root: Path | None = None, *, use_cache: bool = True
+    ) -> Path | None:
+        return transcript_claude.find_transcript(
+            uuid, root or self.transcript_root(), use_cache=use_cache
+        )
+
+    def workspace_from_path(self, jsonl: Path, root: Path | None = None) -> str:
+        """Layout is flat: <root>/<encoded-cwd>/<session-id>.jsonl"""
+        parent = jsonl.parent.name
+        return parent or "unknown"
 
     def anchor_dir(self) -> Path:
         return Path.home() / ".claude" / "agent-memory"
