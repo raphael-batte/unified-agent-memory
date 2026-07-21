@@ -111,6 +111,19 @@ def enqueue_compaction(
     )
 
 
+def _is_actionable(item: dict[str, Any]) -> bool:
+    """Drop entries whose staging file is gone.
+
+    Curation is done against the staging file; without it there is nothing to
+    curate from, and after a hub move every stale entry points at a path that no
+    longer exists. Listing them turns the session-start reminder into noise.
+    """
+    staging = item.get("staging_path")
+    if not staging:
+        return True
+    return Path(staging).is_file()
+
+
 def list_pending(
     memory_home: Path,
     *,
@@ -120,6 +133,18 @@ def list_pending(
     items = _load(memory_home)
     if kind is not None:
         items = [i for i in items if (i.get("kind") or "pointer") == kind]
+    items = [i for i in items if _is_actionable(i)]
+    # One reminder per project: several chats touching the same file are one
+    # curation job, and repeating the filename per chat only pads the list.
+    seen: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for item in items:
+        key = f"{item.get('kind') or 'pointer'}::{item.get('project_rel') or item.get('chat_id')}"
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    items = deduped
     if not workspace_slugs:
         return items
     lowered = {s.lower() for s in workspace_slugs}

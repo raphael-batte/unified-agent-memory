@@ -33,22 +33,30 @@ def analyze_open_threads_coverage(memory_home: Path, *, days: int = HUB_RETENTIO
         return {
             "projects_scanned": 0,
             "threads_total": 0,
+            "threads_auto": 0,
             "projects_covered": 0,
+            "projects_curated": 0,
             "projects_fresh": 0,
             "threads_coverage_rate": None,
+            "threads_curated_rate": None,
             "threads_fresh_rate": None,
         }
 
     now = datetime.now()
     threads_total = 0
+    threads_auto = 0
     covered = 0
     fresh = 0
+    curated_projects = 0
     for path in paths:
         threads = threads_in_file(path)
         threads_total += len(threads)
+        threads_auto += sum(1 for th in threads if th.text.lower().startswith("[auto]"))
         if not threads:
             continue
         covered += 1
+        if any(not th.text.lower().startswith("[auto]") for th in threads):
+            curated_projects += 1
         if any(
             th.updated_dt is None or (now - th.updated_dt).days <= days
             for th in threads
@@ -59,9 +67,12 @@ def analyze_open_threads_coverage(memory_home: Path, *, days: int = HUB_RETENTIO
     return {
         "projects_scanned": scanned,
         "threads_total": threads_total,
+        "threads_auto": threads_auto,
         "projects_covered": covered,
+        "projects_curated": curated_projects,
         "projects_fresh": fresh,
         "threads_coverage_rate": covered / scanned,
+        "threads_curated_rate": curated_projects / scanned,
         "threads_fresh_rate": fresh / scanned,
     }
 

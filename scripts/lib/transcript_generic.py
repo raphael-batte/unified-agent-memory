@@ -7,7 +7,12 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from lib.transcript_cursor import ParseStats, TranscriptSchemaError, is_redacted_or_noise
+from lib.transcript_cursor import (
+    ParseStats,
+    TranscriptEmptyError,
+    TranscriptSchemaError,
+    is_redacted_or_noise,
+)
 
 WHITESPACE = re.compile(r"\s+")
 
@@ -82,8 +87,8 @@ def extract_raw_user_texts(jsonl: Path) -> tuple[list[str], ParseStats]:
     if stats.json_lines == 0:
         raise TranscriptSchemaError(f"no JSON lines (not generic format?): {jsonl}")
     if stats.user_rows == 0:
-        raise TranscriptSchemaError(f"no user/human rows: {jsonl}")
+        raise TranscriptEmptyError(f"no user/human rows: {jsonl}")
     if not texts:
-        raise TranscriptSchemaError(f"only empty/noise user rows: {jsonl}")
+        raise TranscriptEmptyError(f"only empty/noise user rows: {jsonl}")
 
     return texts, stats

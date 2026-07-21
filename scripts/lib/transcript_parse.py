@@ -13,6 +13,7 @@ from lib.secrets_guard import sanitize_message
 from lib.system_blocks import strip_system_blocks
 from lib.transcript_cursor import (
     ParseStats,
+    TranscriptEmptyError,
     TranscriptSchemaError,
     is_redacted_or_noise,
     normalize_user_text,
@@ -127,7 +128,7 @@ def _read_objects(jsonl: Path) -> tuple[list[dict[str, Any]], int]:
         if isinstance(obj, dict):
             objects.append(obj)
     if lines_read == 0:
-        raise TranscriptSchemaError(f"empty transcript: {jsonl}")
+        raise TranscriptEmptyError(f"empty transcript: {jsonl}")
     return objects, lines_read
 
 
@@ -261,12 +262,12 @@ def _parse_cursor_objects(
         raise TranscriptSchemaError(f"no JSON lines in transcript: {source_path}")
     if not user_messages and not assistant_blocks and not tool_calls:
         if stats.user_rows == 0:
-            raise TranscriptSchemaError(f"no user role rows: {source_path}")
-        raise TranscriptSchemaError(
+            raise TranscriptEmptyError(f"no user role rows: {source_path}")
+        raise TranscriptEmptyError(
             f"only redacted/noise user messages in transcript: {source_path}"
         )
     if stats.user_rows > 0 and stats.text_blocks == 0 and not user_messages:
-        raise TranscriptSchemaError(
+        raise TranscriptEmptyError(
             f"no text content blocks in user messages: {source_path}"
         )
 
@@ -314,9 +315,9 @@ def _parse_generic_objects(
     if stats.json_lines == 0:
         raise TranscriptSchemaError(f"no JSON lines (not generic format?): {source_path}")
     if stats.user_rows == 0:
-        raise TranscriptSchemaError(f"no user/human rows: {source_path}")
+        raise TranscriptEmptyError(f"no user/human rows: {source_path}")
     if not user_messages:
-        raise TranscriptSchemaError(f"only empty/noise user rows: {source_path}")
+        raise TranscriptEmptyError(f"only empty/noise user rows: {source_path}")
 
     return ParsedTranscript(
         user_messages=user_messages,

@@ -253,6 +253,12 @@ def print_report(data: dict) -> None:
             f"({hub.get('projects_fresh', 0)}/{hub.get('projects_scanned', 0)} fresh, "
             f"{hub.get('threads_total', 0)} threads)"
         )
+        curated = hub.get("threads_curated_rate")
+        if curated is not None:
+            print(
+                f"  Curated:        {curated * 100:.0f}% of projects "
+                f"({hub.get('threads_auto', 0)} [auto] awaiting review)"
+            )
     if hub.get("queue_size"):
         print(
             f"  Curation queue: {hub['queue_size']} "

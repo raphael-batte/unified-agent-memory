@@ -5,7 +5,7 @@ Technical reference for distill-first memory with **forward pointer** (`## Open 
 ## Design goals
 
 1. **Distill-first** — `chats/projects/<slug>.md` is primary history; **`## Open threads`** is the forward pointer.
-2. **Plugin hooks** — bundle `hooks/cursor/hooks.json`; no global hooks merge in normal install.
+2. **Plugin hooks** — Claude Code only (`hooks/claude/hooks.json`). Cursor's `hooks/cursor/hooks.json` is inert: Cursor dropped hook support in June 2026 and is driven by the launchd job instead.
 3. **One skill** — `agent-memory` routes all layers.
 4. **Event-driven** — distill on session boundaries; `apply=True` updates Recent + optional `[auto]` Open threads draft.
 

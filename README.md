@@ -63,7 +63,7 @@ Both writers take the same `mkdir` lock in the hub and write files atomically. I
 python3 scripts/memory-routing-hint.py --json .
 ```
 
-Distill may write **`[auto]`** draft threads from the tail topic segment; agent curates with `memory-pointer.py add-thread` or semantic-merge. **`[auto]` never overwrites curated** threads.
+Distill may write **`[auto]`** draft threads from the tail topic segment. **Treat these as drafts, not as a pointer you can trust** — they are a mechanical guess at where the session was heading, and on a busy hub they can outnumber the curated ones. `memory-status` reports the curated share so you can see the ratio rather than assume it. Curate with `memory-pointer.py add-thread` or the semantic-merge skill; **`[auto]` never overwrites curated** threads, and session start lists the drafts waiting for review.
 
 **Search past decisions** without a database: `memory-search.py` scores hub bullets — including evicted `[extracted]` in `chats/archive/*-decisions.md` (lower weight than active `projects/`) — plus optional extract JSON with `--deep` (BM25-lite + synonym expansion from `templates/lang/`).
 
@@ -176,7 +176,7 @@ flowchart TB
 | Area | Contents |
 |------|----------|
 | Skills | `skills/agent-memory/`, `skills/semantic-merge/` |
-| Hooks | `hooks/cursor/hooks.json` — sessionStart, sessionEnd, preCompact, afterFileEdit |
+| Triggers | **Claude Code:** hooks (`hooks/claude/hooks.json`) — SessionStart, Stop, PreCompact, SessionEnd. **Cursor:** launchd every 30 min — Cursor dropped hook support in June 2026, so `hooks/cursor/*` never runs |
 | Scripts | distill, sync, search, verify, doctor, first-run, routing-hint, pointer |
 | Templates | hub scaffolds (materialized into `$MEMORY_HOME`) |
 

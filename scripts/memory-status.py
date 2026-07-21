@@ -403,10 +403,18 @@ def print_dashboard(data: dict) -> None:
         hub = mh.get("hub_disk") or {}
         cov = hub.get("threads_coverage_rate")
         if cov is not None:
+            curated = hub.get("threads_curated_rate")
             print(
                 f"  Open threads: {cov * 100:.0f}% of {hub.get('projects_scanned', 0)} projects "
                 f"({hub.get('projects_fresh', 0)} fresh · {hub.get('threads_total', 0)} threads)"
             )
+            # Coverage counts machine drafts too; without this line the pointer
+            # looks curated when most of it has never been read by anyone.
+            if curated is not None and hub.get("threads_auto"):
+                print(
+                    f"  Curated:      {curated * 100:.0f}% of projects · "
+                    f"{hub.get('threads_auto', 0)} [auto] draft(s) awaiting review"
+                )
         deg = mh.get("degradation") or {}
         if deg.get("degraded"):
             print(f"  ⚠ {deg.get('degradation_reason')}")

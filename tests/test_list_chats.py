@@ -32,7 +32,33 @@ class TestListChats(unittest.TestCase):
             processed, pending, total = lc.chat_counts(hub, root)
             self.assertEqual(total, 1)
             self.assertEqual(processed, 2)
-            self.assertEqual(pending, 0)
+            # Present in the manifest, but distilled long before this transcript
+            # was written — it still needs a pass. Counting only "absent from
+            # the manifest" made this 0 while sync-memory reported it as work
+            # to do, and a status line that disagrees with the tool stops being
+            # read at all.
+            self.assertEqual(pending, 1)
+
+    def test_chat_counts_agrees_with_the_distill_gate(self) -> None:
+        """One source of truth: the counter must use the gate distill uses."""
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp)
+            minimal_hub(hub)
+            root = Path(tmp) / "projects"
+            uid = "fresh-chat-uuid"
+            ws = root / "Users-me-Work-Foo" / "agent-transcripts" / uid
+            ws.mkdir(parents=True)
+            jsonl = ws / f"{uid}.jsonl"
+            jsonl.write_text(FIXTURE.read_text(encoding="utf-8"), encoding="utf-8")
+
+            sys.path.insert(0, str(REPO_ROOT / "scripts"))
+            from lib.chats_manifest import load_manifest
+            from lib.pending_chats import needs_distill
+
+            manifest_path = hub / "chats" / "manifest.json"
+            _processed, pending, _total = lc.chat_counts(hub, root)
+            manifest = load_manifest(manifest_path)
+            self.assertEqual(pending, int(needs_distill(uid, jsonl, manifest)))
 
 
 if __name__ == "__main__":

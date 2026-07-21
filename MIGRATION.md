@@ -101,7 +101,7 @@ If you previously used symlink skills or global hooks:
 | Remove | Why |
 |--------|-----|
 | `~/.cursor/skills/agent-memory` symlink | Plugin provides skill from bundle |
-| `agent-memory-*` in `~/.cursor/hooks.json` | Plugin provides `hooks/cursor/hooks.json` |
+| `agent-memory-*` in `~/.cursor/hooks.json` | Remove them — Cursor runs no hooks; the launchd job drives distill |
 | `~/.cursor/hooks/agent-memory.env` (optional) | Anchor + plugin hooks replace env file |
 
 Then `install-local.sh` + Reload + `init-memory.sh` (idempotent).

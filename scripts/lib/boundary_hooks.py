@@ -35,7 +35,11 @@ from lib.pending_chats import (  # noqa: E402
 )
 from lib.live_distill import run_live_distill, should_live_distill  # noqa: E402
 from lib.pointer_feedback import log_session_start_pointer_feedback  # noqa: E402
-from lib.transcript import TranscriptSchemaError, find_transcript  # noqa: E402
+from lib.transcript import (  # noqa: E402
+    TranscriptEmptyError,
+    TranscriptSchemaError,
+    find_transcript,
+)
 
 DEFAULT_PROJECTS_ROOT = Path.home() / ".cursor/projects"
 BOUNDARY_EVENTS = frozenset({"preCompact", "sessionEnd"})
@@ -155,6 +159,32 @@ def _load_distill_modules() -> tuple[Any, Any]:
     return _DISTILL_MODULES_CACHE
 
 
+def _remember_empty_transcript(memory_home: Path, chat_id: str, jsonl: Path) -> None:
+    """Mark a contentless chat as examined, keyed to its current watermark."""
+    from lib.chats_manifest import load_manifest, save_manifest, upsert_processed
+    from lib.distill_watermark import watermark_for_manifest
+
+    manifest_path = memory_home / "chats" / "manifest.json"
+    try:
+        manifest = load_manifest(manifest_path)
+        wm = watermark_for_manifest(jsonl)
+        entry = {
+            "id": chat_id,
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "distilled_at": datetime.now().isoformat(timespec="seconds"),
+            "distilled_to": [],
+            "status": "no_content",
+            # Manifest key names differ from the watermark's own — spreading it
+            # raw leaves has_watermark() false and the chat pending again.
+            "watermark_user_count": int(wm.get("user_message_count") or 0),
+            "watermark_tail_hash": str(wm.get("tail_hash") or ""),
+        }
+        upsert_processed(manifest, entry)
+        save_manifest(manifest_path, manifest)
+    except (OSError, ValueError):
+        pass
+
+
 def _record_metric(memory_home: Path, row: dict[str, Any]) -> None:
     try:
         append_metric(memory_home, row)
@@ -185,6 +215,29 @@ def distill_jsonl(
             memory_home=memory_home,
             manifest_entry=manifest_entry,
         )
+    except TranscriptEmptyError as exc:
+        # Nothing to distill is not a failure. Record it against the current
+        # watermark so the chat stops being offered until it grows content —
+        # otherwise a `/mcp` echo stays pending forever and keeps `errors`
+        # above zero, which puts a permanent warning on a healthy hub.
+        _remember_empty_transcript(memory_home, chat_id, jsonl)
+        out = {
+            "status": "skipped",
+            "reason": "no_content",
+            "detail": str(exc),
+            "chat_id": chat_id,
+        }
+        _record_metric(
+            memory_home,
+            {
+                "event": event or "distill",
+                "status": "skipped",
+                "chat_id": chat_id,
+                "reason": "no_content",
+                "duration_ms": int((time.perf_counter() - t0) * 1000),
+            },
+        )
+        return out
     except TranscriptSchemaError as exc:
         out = {
             "status": "error",

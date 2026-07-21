@@ -6,6 +6,35 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.29.3] - 2026-07-21
+
+### Fixed
+
+- **A contentless chat is no longer an error.** A `/mcp` echo or a bare command capture is a
+  valid transcript with no conversation in it; reporting `transcript_schema` kept such chats
+  pending forever and pinned `errors` above zero, so `memory-status` warned on a healthy hub.
+  New `TranscriptEmptyError` (a `TranscriptSchemaError`, so existing handlers still work) maps to
+  `skipped / no_content` and records the chat against its watermark — it comes back the moment it
+  grows real messages.
+- **The two pending counters agreed on one answer.** `chat_counts` treated "absent from the
+  manifest" as the definition of pending, so it under-reported next to `sync-memory`: a chat that
+  grew messages since its distill is already in the manifest. It now uses `needs_distill`, the
+  same gate the distill itself uses.
+- **Curation queue lists one entry per project** and drops entries whose staging file is gone.
+  Four chats touching one file is one job, not four lines, and after the hub move every stale
+  entry pointed at a path that no longer existed.
+
+### Changed
+
+- **`memory-status` and `memory-health` report the curated share of Open threads.** Coverage
+  counted machine-written `[auto]` drafts as if they were reviewed; on this hub that read as 80%
+  coverage while only 40% of projects had a human-written thread. README now says plainly that
+  `[auto]` threads are drafts, not a pointer to trust.
+- **Docs no longer imply Cursor runs hooks.** Cursor dropped hook support in June 2026;
+  `hooks/cursor/*` is inert and the launchd job is the trigger. ARCHITECTURE, README,
+  INSTRUCTIONS, MIGRATION and SYNC-AND-TRIGGERS said or implied otherwise, so a reader would have
+  edited files that can never fire.
+
 ## [0.29.2] - 2026-07-21
 
 ### Fixed

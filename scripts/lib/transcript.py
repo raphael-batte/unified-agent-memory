@@ -8,10 +8,16 @@ from pathlib import Path
 from lib import transcript_claude as claude
 from lib import transcript_cursor as cursor
 from lib import transcript_generic as generic
-from lib.transcript_cursor import ParseStats, TranscriptSchemaError, workspace_slug
+from lib.transcript_cursor import (
+    ParseStats,
+    TranscriptEmptyError,
+    TranscriptSchemaError,
+    workspace_slug,
+)
 
 __all__ = [
     "ParseStats",
+    "TranscriptEmptyError",
     "TranscriptSchemaError",
     "clear_transcript_cache",
     "extract_raw_user_texts",

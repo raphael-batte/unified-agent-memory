@@ -11,9 +11,9 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from lib.chats_manifest import load_manifest, processed_by_id  # noqa: E402
+from lib.chats_manifest import load_manifest, processed_by_id
 from lib.memory_config import resolve_memory_home  # noqa: E402
-from lib.pending_chats import scan_transcript_rows  # noqa: E402
+from lib.pending_chats import needs_distill, scan_transcript_rows  # noqa: E402
 from lib.timestamps import transcript_is_newer_than_distill  # noqa: E402
 from lib.transcript_cursor import TranscriptSchemaError  # noqa: E402
 from lib.transcript_parse import parse_transcript  # noqa: E402
@@ -57,7 +57,11 @@ def chat_counts(memory_home: Path, projects_root: Path | None = None) -> tuple[i
         return 0, total, total
     manifest = load_manifest(manifest_path)
     processed_ids = set(processed_by_id(manifest))
-    pending = sum(1 for r in rows if r["id"] not in processed_ids)
+    # Same gate the distill itself uses. Counting "absent from the manifest"
+    # instead reported a smaller number than `sync-memory`, because a chat that
+    # grew new messages since its distill is already in the manifest — two
+    # counters disagreeing is how a status line stops being trusted.
+    pending = sum(1 for r in rows if needs_distill(r["id"], Path(r["path"]), manifest))
     return len(processed_ids), pending, total
 
 

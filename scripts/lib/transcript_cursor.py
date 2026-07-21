@@ -12,7 +12,17 @@ REDACTED_MARKERS = ("[REDACTED]", "<image_files>", "<open_and_recently_viewed_fi
 
 
 class TranscriptSchemaError(Exception):
-    """Raised when jsonl has no parseable Cursor user messages."""
+    """Raised when jsonl cannot be parsed as a transcript at all."""
+
+
+class TranscriptEmptyError(TranscriptSchemaError):
+    """Parsed fine, but holds nothing worth distilling.
+
+    A `/mcp` invocation or a bare command echo is a valid transcript with no
+    conversation in it. Reporting that as an error kept such chats pending
+    forever and pinned `errors` above zero, so `memory-status` showed a warning
+    on a healthy hub — exactly the alert fatigue the pointer floor caused.
+    """
 
 
 @dataclass
