@@ -83,7 +83,14 @@ def is_redacted_or_noise(text: str) -> bool:
         return True
     if stripped.startswith("["):
         return True
-    return any(marker in stripped for marker in REDACTED_MARKERS)
+    if any(marker in stripped for marker in REDACTED_MARKERS):
+        return True
+    # Harness-authored turns (compaction recaps, skill preambles, quota notices)
+    # look like user messages but carry no user intent.
+    from lib.defaults import HARNESS_NOISE_PREFIXES
+
+    lowered = stripped.lower()
+    return any(lowered.startswith(prefix) for prefix in HARNESS_NOISE_PREFIXES)
 
 
 def extract_raw_user_texts(jsonl: Path) -> tuple[list[str], ParseStats]:

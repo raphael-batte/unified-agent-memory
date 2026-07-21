@@ -17,6 +17,7 @@ from lib.forward_pointer import (
     score_extract_with_learned_projection,
 )
 from lib.secrets_guard import is_terminal_noise, sanitize_message
+from lib.transcript_cursor import TranscriptSchemaError
 from lib.topic_segmentation import clear_new_task_cache
 from lib.transcript_cursor import normalize_user_text
 from lib.transcript_parse import ParsedTranscript, parse_transcript
@@ -314,7 +315,13 @@ def mine_into_doc(
         path = Path(jsonl).expanduser()
         if not path.is_file():
             continue
-        parsed = parse_transcript(path)
+        try:
+            parsed = parse_transcript(path)
+        except TranscriptSchemaError:
+            # A chat can be entirely harness noise (compaction recaps, slash
+            # commands). Skip it rather than abort the whole batch.
+            corpus.add(chat_id)
+            continue
         _mine_chat(
             parsed,
             chat_id,
@@ -511,20 +518,39 @@ def prepare_lang_learn_for_batch(
         }
 
     before_doc = json.loads(json.dumps(doc))
+    from lib.transcript_cursor import TranscriptSchemaError
+
+    usable: list[dict[str, Any]] = []
+    skipped_unparseable = 0
     for row in pending:
         jsonl = row.get("jsonl")
-        if jsonl is not None:
-            path = Path(jsonl).expanduser()
-            if path.is_file():
-                parse_transcript(path)
+        if jsonl is None:
+            continue
+        path = Path(jsonl).expanduser()
+        if not path.is_file():
+            continue
+        try:
+            parse_transcript(path)
+        except TranscriptSchemaError:
+            # Noise-only / empty transcripts must not abort the batch.
+            skipped_unparseable += 1
+            continue
+        usable.append(row)
 
-    doc = mine_into_doc(doc, pending, memory_home=memory_home)
+    if not usable:
+        return {
+            "status": "skipped",
+            "reason": "no_parseable_pending",
+            "skipped_unparseable": skipped_unparseable,
+        }
+
+    doc = mine_into_doc(doc, usable, memory_home=memory_home)
     write_lang_learned(memory_home, doc)
     clear_lang_learn_caches()
 
     summary = dry_rescore_tier_shift(
         memory_home,
-        pending,
+        usable,
         before_doc=before_doc,
         after_doc=doc,
     )
@@ -536,6 +562,7 @@ def prepare_lang_learn_for_batch(
         "corpus_size": len(doc.get("corpus_chat_ids") or []),
         "commitment_cues": len(projected.get("commitment_prefixes") or []),
         "user_action_cues": len(projected.get("user_action_verbs") or []),
+        "skipped_unparseable": skipped_unparseable,
         **summary,
     }
     append_metric(memory_home, metric)

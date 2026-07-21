@@ -45,8 +45,18 @@ SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
     ),
     (
+        # Must precede openai_key: `sk-ant-…` contains hyphens, so the plain
+        # `sk-[A-Za-z0-9]{20,}` pattern below never matched an Anthropic key.
+        "anthropic_api_key",
+        re.compile(r"sk-ant-[A-Za-z0-9_-]{20,}"),
+    ),
+    (
         "openai_key",
         re.compile(r"\bsk-[A-Za-z0-9]{20,}\b"),
+    ),
+    (
+        "figma_pat",
+        re.compile(r"figd_[A-Za-z0-9_-]{20,}"),
     ),
     (
         "google_oauth_client_secret",
