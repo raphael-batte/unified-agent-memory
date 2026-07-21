@@ -146,7 +146,7 @@ Inventory across environments: `python3 scripts/list-chats.py --json`
 | Sync finds 0 chats | Transcripts under `~/.cursor/projects/` |
 | verify failed | `memory-doctor.py --memory-home "$MEMORY_HOME"` |
 | Hooks silent | Reload Cursor; check plugin at `~/.cursor/plugins/local/agent-memory` |
-| Periodic sync | `bash scripts/install-periodic-sync.sh` — every 2h when Cursor is open (`scripts/sync-if-cursor-open.sh`) |
+| Periodic sync | `bash scripts/install-periodic-sync.sh` — every 30m when Cursor is open (`scripts/sync-if-cursor-open.sh`) |
 | Stale Open threads | Close chat (sessionEnd distill) or `list-chats.py --pending`; curate `[auto]` via add-thread |
 | Wrong paths after move | `memory-doctor.py --fix`; check anchor `memory_home` |
 | Rule reads wrong distill | `python3 scripts/memory-routing-hint.py --json .` — check slug; or `init-project-rules.sh --slug <name-from-chats/projects>` (optional per-repo override) |

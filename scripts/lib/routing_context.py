@@ -54,6 +54,26 @@ def render_open_threads(
     return "\n".join(lines)
 
 
+def threads_fingerprint(memory_home: Path) -> float:
+    """Newest mtime across project files — cheap 'did anything change' probe.
+
+    The hub has two writers on independent schedules, so a thread written by the
+    other environment must not wait out this session's debounce. Comparing the
+    fingerprint costs one stat per project file and keeps quiet hubs quiet: with
+    nothing written, the timestamp does not move and nothing is re-injected.
+    """
+    projects = memory_home / "chats" / "projects"
+    if not projects.is_dir():
+        return 0.0
+    newest = 0.0
+    for path in projects.glob("*.md"):
+        try:
+            newest = max(newest, path.stat().st_mtime)
+        except OSError:
+            continue
+    return newest
+
+
 def should_inject(
     memory_home: Path,
     session_id: str,
@@ -73,7 +93,14 @@ def should_inject(
     ts = row.get("ts")
     if not isinstance(ts, (int, float)):
         return True
-    return (time.time() - float(ts)) >= debounce_seconds
+    if (time.time() - float(ts)) >= debounce_seconds:
+        return True
+
+    # Still inside the debounce, but the hub moved — someone else wrote a thread.
+    seen = row.get("threads_mtime")
+    if not isinstance(seen, (int, float)):
+        return False
+    return threads_fingerprint(memory_home) > float(seen)
 
 
 def record_injection(memory_home: Path, session_id: str) -> None:
@@ -86,5 +113,8 @@ def record_injection(memory_home: Path, session_id: str) -> None:
                 data = loaded
         except (json.JSONDecodeError, OSError):
             data = {}
-    data[session_id] = {"ts": time.time()}
+    data[session_id] = {
+        "ts": time.time(),
+        "threads_mtime": threads_fingerprint(memory_home),
+    }
     write_json_atomic(path, data)

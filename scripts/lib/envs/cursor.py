@@ -1,7 +1,7 @@
 """Cursor environment rules.
 
 Cursor dropped hook support in June 2026, so this environment is **cron triggered**:
-a launchd job runs `scripts/sync-if-cursor-open.sh` every 2 hours. The event names below
+a launchd job runs `scripts/sync-if-cursor-open.sh` every 30 minutes. The event names below
 are still honoured for manual/legacy invocations of `boundary-hooks.py`.
 
 This module only declares rules and delegates — Cursor's parsing and sync logic stays

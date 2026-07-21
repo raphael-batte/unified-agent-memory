@@ -201,6 +201,44 @@ class TestPromptSubmitRouting(unittest.TestCase):
             self.assertEqual(second["status"], "skipped")
             self.assertEqual(second["reason"], "debounced")
 
+    def test_other_writer_beats_the_debounce(self) -> None:
+        """The hub has two writers on independent schedules: a thread Cursor's
+        cron just wrote must not wait out this session's 30-minute debounce."""
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = self._hub_with_thread(tmp)
+            payload = {
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "claude-session-0004",
+                "cwd": str(Path(tmp) / "example-app"),
+            }
+            self.assertEqual(bh.handle_boundary(payload, memory_home=hub)["status"], "injected")
+            self.assertEqual(bh.handle_boundary(payload, memory_home=hub)["status"], "skipped")
+
+            project = hub / "chats" / "projects" / "other-app.md"
+            project.write_text(
+                "# other-app\n_Last updated: 2026-07-21_\n\n## Open threads\n\n"
+                "- **[api]** written by the other agent · _upd 2026-07-21_\n",
+                encoding="utf-8",
+            )
+            result = bh.handle_boundary(payload, memory_home=hub)
+            self.assertEqual(result["status"], "injected")
+            self.assertIn("written by the other agent", result["user_message"])
+
+    def test_quiet_hub_stays_debounced(self) -> None:
+        """Re-injecting on a hub nobody wrote to would just be noise."""
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = self._hub_with_thread(tmp)
+            payload = {
+                "hook_event_name": "UserPromptSubmit",
+                "session_id": "claude-session-0005",
+                "cwd": str(Path(tmp) / "example-app"),
+            }
+            bh.handle_boundary(payload, memory_home=hub)
+            for _ in range(3):
+                self.assertEqual(
+                    bh.handle_boundary(payload, memory_home=hub)["reason"], "debounced"
+                )
+
     def test_injected_context_uses_claude_output_shape(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = self._hub_with_thread(tmp)

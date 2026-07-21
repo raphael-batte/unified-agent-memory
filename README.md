@@ -12,7 +12,7 @@ It runs in **Cursor and Claude Code**, and both share **one hub**: a chat in eit
 
 | Environment | Trigger | Pointer delivery |
 |---|---|---|
-| **Cursor** | launchd job every 2h (Cursor dropped hook support in June 2026) | `alwaysApply` rule |
+| **Cursor** | launchd job every 30m (Cursor dropped hook support in June 2026) | `alwaysApply` rule |
 | **Claude Code** | hooks: `SessionStart`, `UserPromptSubmit`, `Stop`, `PreCompact`, `SessionEnd` | injected on session start and prompt submit |
 
 Because Claude Code fires real events, memory there survives context-limit compaction and hard session kills — not just a clean exit.
@@ -38,7 +38,7 @@ A local clone works too: `/plugin marketplace add /path/to/repo`. Hooks come wit
 git clone https://github.com/raphael-batte/cursor-agent-memory.git
 cd cursor-agent-memory
 bash scripts/install-local.sh
-bash scripts/install-periodic-sync.sh   # 2-hourly sync; Cursor has no hooks
+bash scripts/install-periodic-sync.sh   # every 30m when Cursor is open; no hooks
 ```
 
 Then **reload the Cursor window**. `install-local.sh` also links **`~/.cursor/rules/agent-memory-routing.mdc`** (`alwaysApply`) so every chat reads rolling **Open threads** before answering. First open of a project creates the hub and anchor. In chat: **`@agent-memory`** → **set up agent memory**.
@@ -105,7 +105,7 @@ Internally every environment's events normalize onto the same names.
 | `liveDistill` | `Stop` | — | Per-turn distill to staging; never touches the project file |
 | `preCompact` | `PreCompact` (`auto` = context limit) | — | Full distill before context is lost |
 | `sessionEnd` | `SessionEnd` | — | Distill + `[auto]` Open threads draft |
-| — | — | every 2h | `sync-if-cursor-open.sh` distills pending chats |
+| — | — | every 30m | `sync-if-cursor-open.sh` distills pending chats |
 | Manual | — | `@agent-memory` → **sync with agent memory** | |
 
 Distill runs only when transcripts are new or changed (manifest + file mtime). First bulk sync scope is chosen during setup (e.g. last 90 days).
@@ -207,4 +207,4 @@ If you used symlink skills or global `~/.cursor/hooks.json` entries before the p
 
 Created by [raphael-batte](https://github.com/raphael-batte) · [raphbatte.com](https://raphbatte.com)
 
-**Version:** 0.29.0 — see [VERSIONING.md](VERSIONING.md)
+**Version:** 0.29.1 — see [VERSIONING.md](VERSIONING.md)

@@ -6,6 +6,22 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-07-21
+
+### Changed
+
+- **Cursor periodic sync every 30 minutes** (was 2 hours). Cursor has no hooks, so the launchd
+  job is the only moment its work reaches the shared hub — at 2h intervals the other environment
+  could not see a thread until long after the session that produced it ended.
+
+### Fixed
+
+- **A thread written by the other environment no longer waits out the injection debounce.**
+  `should_inject` compares the newest mtime across `chats/projects/` with the one recorded at the
+  last injection, so a cron-written thread reaches a running session on its next prompt. A hub
+  nobody wrote to still stays quiet — the fingerprint does not move, nothing is re-injected.
+- `install-periodic-sync.sh` printed sub-hour intervals as `0h 30m`.
+
 ## [0.29.0] - 2026-07-21
 
 ### Removed

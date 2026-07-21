@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-# Install launchd job: sync-if-cursor-open.sh every 2 hours (Cursor must be running).
+# Install launchd job: sync-if-cursor-open.sh every 30 minutes (Cursor must be running).
+# The sync script exits early when Cursor is closed or nothing is pending — cheap to poll.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SYNC_SCRIPT="$SCRIPT_DIR/sync-if-cursor-open.sh"
 LABEL="com.raphael-batte.agent-memory-sync"
 PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
-INTERVAL="${AGENT_MEMORY_SYNC_INTERVAL:-7200}"
+INTERVAL="${AGENT_MEMORY_SYNC_INTERVAL:-1800}"
 # Logs live in the hub, which is shared across agent environments and may have
 # been moved off the default path — resolve it instead of hardcoding.
 LOG_DIR="$(python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); from lib.memory_config import resolve_memory_home; print(resolve_memory_home(None))")/logs"
 
 usage() {
   echo "Usage: $0 [--uninstall] [--interval SECONDS]"
-  echo "  Default interval: 7200 (2 hours)"
+  echo "  Default interval: 1800 (30 minutes)"
   exit 0
 }
 
@@ -87,7 +88,9 @@ echo "  Label:     $LABEL"
 echo "  Script:    $SYNC_SCRIPT"
 hours=$((INTERVAL / 3600))
 mins=$(((INTERVAL % 3600) / 60))
-if [[ "$mins" -eq 0 ]]; then
+if [[ "$hours" -eq 0 ]]; then
+  echo "  Interval:  ${INTERVAL}s (every ${mins}m)"
+elif [[ "$mins" -eq 0 ]]; then
   echo "  Interval:  ${INTERVAL}s (every ${hours}h)"
 else
   echo "  Interval:  ${INTERVAL}s (every ${hours}h ${mins}m)"

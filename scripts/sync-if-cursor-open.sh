@@ -8,7 +8,7 @@ usage() {
 Usage: sync-if-cursor-open.sh [--dry-run] [--force]
 
 Runs incremental sync when Cursor is open and there are pending chats.
-Designed for launchd StartInterval (default every 2 hours).
+Designed for launchd StartInterval (default every 30 minutes).
 
 Env:
   MEMORY_HOME              Hub path (via anchor if unset)

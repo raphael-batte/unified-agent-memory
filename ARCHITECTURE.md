@@ -25,7 +25,7 @@ harness. Adding one (Codex, say) is a new module plus a registry entry.
 |---|---|---|
 | Transcripts | `~/.cursor/projects/*/agent-transcripts/**/*.jsonl` | `~/.claude/projects/<encoded-cwd>/<session>.jsonl` |
 | Row shape | role at top level | role under `message` |
-| Trigger | launchd every 2h — **hooks unsupported since June 2026** | event hooks |
+| Trigger | launchd every 30m — **hooks unsupported since June 2026** | event hooks |
 | Payload workspace | `workspace_roots` list | single `cwd` |
 | Reply shape | `user_message` | `hookSpecificOutput.additionalContext` |
 
