@@ -6,9 +6,9 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from lib.forward_pointer import NO_POINTER_MARKER, STALE_POINTER_PREFIX
+from lib.defaults import HUB_RETENTION_DAYS
+from lib.open_threads import _project_files, threads_in_file
 from lib.pointer_curation_queue import list_pending
-from lib.project_merge import _bullets, _parse_sections
 from lib.timestamps import parse_distilled_at
 
 _STAGING_UUID_RE = re.compile(r"-([0-9a-f]{8})\.md$", re.I)
@@ -18,49 +18,51 @@ def _parse_ts(value: str | None) -> datetime | None:
     return parse_distilled_at(value)
 
 
-def analyze_project_pointers(memory_home: Path) -> dict:
-    projects = memory_home / "chats" / "projects"
-    extracted = 0
-    placeholder = 0
-    curated = 0
-    empty = 0
-    total = 0
-    if not projects.is_dir():
+def analyze_open_threads_coverage(memory_home: Path, *, days: int = HUB_RETENTION_DAYS) -> dict:
+    """Share of projects carrying a forward pointer, measured on disk.
+
+    This replaces the old ``## Next step`` extraction rate, which reported 0%
+    on every healthy hub once that section was retired. Coverage needs no
+    metrics history, so it is trustworthy the day it ships.
+
+    ``fresh`` counts only projects with a thread updated within ``days``;
+    ``covered`` counts any thread, including undated ones that never age out.
+    """
+    paths = _project_files(memory_home)
+    if not paths:
         return {
             "projects_scanned": 0,
-            "pointer_extracted": 0,
-            "pointer_placeholder": 0,
-            "pointer_curated": 0,
-            "pointer_empty": 0,
-            "pointer_extracted_rate": None,
+            "threads_total": 0,
+            "projects_covered": 0,
+            "projects_fresh": 0,
+            "threads_coverage_rate": None,
+            "threads_fresh_rate": None,
         }
-    for path in projects.glob("*.md"):
-        if path.name == "example.md":
+
+    now = datetime.now()
+    threads_total = 0
+    covered = 0
+    fresh = 0
+    for path in paths:
+        threads = threads_in_file(path)
+        threads_total += len(threads)
+        if not threads:
             continue
-        _preamble, sections = _parse_sections(
-            path.read_text(encoding="utf-8", errors="replace")
-        )
-        bullets = _bullets(sections.get("Next step", ""))
-        if not bullets:
-            empty += 1
-            total += 1
-            continue
-        for bullet in bullets:
-            total += 1
-            if bullet.strip().lower().startswith("[curated]"):
-                curated += 1
-            elif NO_POINTER_MARKER in bullet or bullet.strip().startswith(STALE_POINTER_PREFIX):
-                placeholder += 1
-            else:
-                extracted += 1
-    rate = extracted / total if total else None
+        covered += 1
+        if any(
+            th.updated_dt is None or (now - th.updated_dt).days <= days
+            for th in threads
+        ):
+            fresh += 1
+
+    scanned = len(paths)
     return {
-        "projects_scanned": len(list(projects.glob("*.md"))),
-        "pointer_extracted": extracted,
-        "pointer_placeholder": placeholder,
-        "pointer_curated": curated,
-        "pointer_empty": empty,
-        "pointer_extracted_rate": rate,
+        "projects_scanned": scanned,
+        "threads_total": threads_total,
+        "projects_covered": covered,
+        "projects_fresh": fresh,
+        "threads_coverage_rate": covered / scanned,
+        "threads_fresh_rate": fresh / scanned,
     }
 
 
@@ -125,7 +127,7 @@ def analyze_staging_orphans(
 
 def analyze_hub_disk(memory_home: Path) -> dict:
     out = {}
-    out.update(analyze_project_pointers(memory_home))
+    out.update(analyze_open_threads_coverage(memory_home))
     out.update(analyze_curation_queue(memory_home))
     out.update(analyze_staging_orphans(memory_home))
     return out

@@ -9,7 +9,7 @@ One skill, one sync command. Framework repo is **English-only**; your `$MEMORY_H
 
 ## Quick start
 
-From [the repo](https://github.com/raphael-batte/cursor-agent-memory) (clone anywhere), then:
+From [the repo](https://github.com/raphael-batte/unified-agent-memory) (clone anywhere), then:
 
 ```bash
 bash scripts/install-local.sh
@@ -21,7 +21,22 @@ bash scripts/install-local.sh
 | Reload Cursor | Plugin discovers skills, hooks, and bundled `rules/` |
 | `init-memory.sh` | Creates hub + anchor (idempotent; never overwrites user data); re-links global rule |
 
-Default hub: `~/.cursor/agent-memory/` (first `sessionStart` may create template stubs; **restore** via `migrate-memory.sh --from backup`).
+Default hub: `~/.agent-memory/` — **shared by every environment**, so Cursor and Claude Code
+read and write the same memory. First `sessionStart` may create template stubs; **restore** via
+`migrate-memory.sh --from backup`. Upgrading from a pre-0.28 per-environment hub:
+`python3 scripts/migrate-memory.py --to-shared`.
+
+### Claude Code
+
+```bash
+/plugin marketplace add raphael-batte/unified-agent-memory   # or a local clone path
+/plugin install agent-memory
+```
+
+Hooks ship with the plugin; `~/.claude/settings.json` is not modified. Hooks are read when a
+session starts, so open a **new** session after installing. `PostToolUse` is deliberately not
+declared — the apply-guard it would call is not wired to the hook CLI, and an empty hook is
+worse than none.
 
 ```bash
 bash scripts/init-memory.sh   # optional — hooks also init idempotently
@@ -81,7 +96,7 @@ python3 scripts/verify-memory.py --memory-home "$MEMORY_HOME"
 If you already have data (e.g. `<clone>/memory/`):
 
 ```bash
-bash scripts/migrate-memory.sh --from /path/to/old-hub --to "$HOME/.cursor/agent-memory"
+bash scripts/migrate-memory.sh --from /path/to/old-hub --to "$HOME/.agent-memory"
 # or keep old path — init-memory + doctor --fix writes anchor
 python3 scripts/memory-doctor.py --fix
 ```
@@ -118,8 +133,11 @@ python3 scripts/memory-doctor.py
 python3 scripts/memory-status.py --brief
 ```
 
-Anchor: `~/.cursor/agent-memory/config.json`  
-Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/`
+Anchors: `~/.cursor/agent-memory/config.json` · `~/.claude/agent-memory/config.json`
+(both point at the shared hub)  
+Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/` ·
+`~/.claude/projects/<encoded-cwd>/*.jsonl`  
+Inventory across environments: `python3 scripts/list-chats.py --json`
 
 ## Troubleshooting
 
@@ -128,7 +146,7 @@ Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/`
 | Sync finds 0 chats | Transcripts under `~/.cursor/projects/` |
 | verify failed | `memory-doctor.py --memory-home "$MEMORY_HOME"` |
 | Hooks silent | Reload Cursor; check plugin at `~/.cursor/plugins/local/agent-memory` |
-| Periodic sync | `bash scripts/install-periodic-sync.sh` — every 2h when Cursor is open (`scripts/sync-if-cursor-open.sh`) |
+| Periodic sync | `bash scripts/install-periodic-sync.sh` — every 30m when Cursor is open (`scripts/sync-if-cursor-open.sh`) |
 | Stale Open threads | Close chat (sessionEnd distill) or `list-chats.py --pending`; curate `[auto]` via add-thread |
 | Wrong paths after move | `memory-doctor.py --fix`; check anchor `memory_home` |
 | Rule reads wrong distill | `python3 scripts/memory-routing-hint.py --json .` — check slug; or `init-project-rules.sh --slug <name-from-chats/projects>` (optional per-repo override) |

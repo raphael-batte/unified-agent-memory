@@ -87,8 +87,10 @@ class TestProjectMerge(unittest.TestCase):
             self.assertEqual(result["decisions_added"], 0)
             self.assertNotIn("[bootstrap]", path.read_text(encoding="utf-8"))
 
-    def test_next_step_deprecated_contract(self) -> None:
-        """Empty → deprecation stamp; existing → passthrough; extract pointer → ignored."""
+    def test_next_step_is_never_written(self) -> None:
+        """The section is retired: apply neither creates nor fills it, and a
+        `Next step:` line in the transcript must not resurrect it. A section left
+        over in an old file is passthrough — we never rewrite the user's text."""
         with tempfile.TemporaryDirectory() as tmp:
             jsonl = Path(tmp) / "c.jsonl"
             jsonl.write_text(
@@ -104,14 +106,13 @@ class TestProjectMerge(unittest.TestCase):
                 "strategy": "tail",
                 "source_path": str(jsonl),
             }
-            empty_path = Path(tmp) / "empty.md"
-            empty_path.write_text("## Next step\n\n\n## Recent\n\n", encoding="utf-8")
-            result = pm.apply_extract_to_project(empty_path, extract, today="2026-06-07")
-            empty_text = empty_path.read_text(encoding="utf-8")
-            self.assertNotIn("device QA", empty_text)
-            self.assertIn("forward pointer lives in ## Open threads", empty_text)
-            self.assertEqual(result["next_step_kind"], "deprecated_passthrough")
-            self.assertFalse(result["next_step_updated"])
+            fresh_path = Path(tmp) / "fresh.md"
+            fresh_path.write_text("## Recent\n\n", encoding="utf-8")
+            result = pm.apply_extract_to_project(fresh_path, extract, today="2026-06-07")
+            fresh_text = fresh_path.read_text(encoding="utf-8")
+            self.assertNotIn("## Next step", fresh_text)
+            self.assertNotIn("device QA", fresh_text)
+            self.assertNotIn("next_step_kind", result)
 
             legacy_path = Path(tmp) / "legacy.md"
             legacy_path.write_text(

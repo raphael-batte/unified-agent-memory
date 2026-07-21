@@ -13,9 +13,10 @@ if ! git rev-parse --git-dir &>/dev/null; then
   echo "Initialized git repository"
 fi
 
-chmod +x "$HOOKS_DIR/pre-commit"
+chmod +x "$HOOKS_DIR/pre-commit" "$HOOKS_DIR/pre-push"
 git config core.hooksPath scripts/hooks
 
 echo "Git hooks installed: core.hooksPath → scripts/hooks"
-echo "Pre-commit: framework changes require VERSION or CHANGELOG bump"
+echo "Pre-commit: leak check + framework changes require VERSION or CHANGELOG bump"
+echo "Pre-push:   blocks personal data in any ref being pushed (branches and tags)"
 echo "Run: bash scripts/bump-version.sh patch \"description\" before commit"

@@ -13,7 +13,6 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from lib.memory_config import resolve_memory_home, resolve_plugin_root  # noqa: E402
 from lib.open_threads import collect_open_threads  # noqa: E402
-from lib.pointer_provenance import NEXT_STEP_DEPRECATED_MARKER  # noqa: E402
 from lib.workspace_slug_resolve import resolve_slug  # noqa: E402
 
 
@@ -46,8 +45,6 @@ def main() -> int:
         "slug_reason": reason,
         "distill_path": str(distill_path) if distill_path else None,
         "forward_pointer": "open_threads",
-        "next_step_deprecated": True,
-        "next_step_preview": NEXT_STEP_DEPRECATED_MARKER,
         "open_threads": [t.to_dict() for t in threads],
     }
 
@@ -66,7 +63,6 @@ def main() -> int:
                 print(f"  [{t.slug}] {t.label}: {t.text}  ({age})")
         else:
             print("open threads: (none active — use add-thread after sessions)")
-        print(f"## Next step: deprecated ({NEXT_STEP_DEPRECATED_MARKER})")
     return 0
 
 

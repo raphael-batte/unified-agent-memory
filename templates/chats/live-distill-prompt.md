@@ -13,7 +13,7 @@ Use when `preCompact` hook fires and context is about to be compacted. Mechanica
 1. Read mechanical staging + last ~20 transcript turns (user + assistant).
 2. Write **one** markdown file at the output path with:
    - `## Summary` — 1–3 bullets, chat language, ≤200 chars each, actionable facts/decisions not already in staging
-   - `## Next step candidate` (optional) — single imperative bullet if clearer than mechanical pointer
+   - `## Open thread candidate` (optional) — single imperative bullet naming the direction to resume
 3. No secrets, no raw tool dumps, no translation of user language.
 4. Prefer concrete next actions (file paths, commands, version numbers) over "continue working".
 

@@ -1,10 +1,133 @@
 # Changelog
 
-All notable changes to **cursor-agent-memory** (framework). Format [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning [SemVer](https://semver.org/).
+All notable changes to **agent-memory** (framework). Format [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning [SemVer](https://semver.org/).
 
 Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
+
+## [0.29.2] - 2026-07-21
+
+### Fixed
+
+- **Claude hook log no longer echoes stdin** on failure (could include prompts / cwd). Logs
+  event + byte length only; log file mode `0600`.
+- **Default hub docs** aligned to `~/.agent-memory/` (ARCHITECTURE, skill wizard, CONTRIBUTING).
+- **Removed maintainer-specific encoded project denylist** from `test_no_hardcoded_paths.py`.
+  Tests are public; examples use an allowlist of fictional names. Repo rule:
+  `.cursor/rules/no-local-naming.mdc`.
+
+## [0.29.2] - 2026-07-21
+
+### Added
+
+- **Leak gate on push.** `scripts/check-local-leaks.py` blocks personal data from leaving the
+  machine. The list of names to block cannot live in a public repo — that list *is* the private
+  data — so it is derived at runtime from the hub's project slugs plus the local account name,
+  minus the product's own vocabulary. Structural checks (`/Users/<someone>/`, encoded denylists)
+  need no list and run everywhere, including CI on a machine with no hub.
+- **`pre-push` hook** scanning every ref being pushed: branches by the lines they add, tags by
+  their whole tree. A tag was how the earlier leak shipped — its content was never on a branch,
+  so nothing that scanned the working tree or the branch diff could have caught it. `pre-commit`
+  runs the same check on the index; findings print redacted, since they land in public CI logs.
+- `.leakcheck-allow` for generic technology names cleared by the maintainer.
+
+### Changed
+
+- **Repo renamed to `unified-agent-memory`.** Install commands, clone URLs, issue links and both
+  plugin manifests follow. `~/.config/cursor-agent-memory/` keeps the old spelling on purpose —
+  it is a path on existing installs, not a reference to the repo, and renaming it would orphan
+  those configs. Former repo names are in `.leakcheck-allow`, since the leak checker derives the
+  product's own vocabulary from the current name and would otherwise read them as personal data.
+
+## [0.29.1] - 2026-07-21
+
+### Changed
+
+- **Cursor periodic sync every 30 minutes** (was 2 hours). Cursor has no hooks, so the launchd
+  job is the only moment its work reaches the shared hub — at 2h intervals the other environment
+  could not see a thread until long after the session that produced it ended.
+
+### Fixed
+
+- **A thread written by the other environment no longer waits out the injection debounce.**
+  `should_inject` compares the newest mtime across `chats/projects/` with the one recorded at the
+  last injection, so a cron-written thread reaches a running session on its next prompt. A hub
+  nobody wrote to still stays quiet — the fingerprint does not move, nothing is re-injected.
+- `install-periodic-sync.sh` printed sub-hour intervals as `0h 30m`.
+
+## [0.29.0] - 2026-07-21
+
+### Removed
+
+- **`## Next step` is gone from the project-file schema.** Deprecated since v0.24, it stayed in
+  `DEFAULT_SECTIONS` and was re-stamped on every apply, so the hub kept accumulating a section
+  nothing wrote and agents still read as a pointer. Distill no longer creates it; a section left
+  in an existing file is passthrough — nothing rewrites the user's text. `memory-pointer.py set`
+  now exits 2 pointing at `add-thread`. `## Open threads` is the only forward pointer.
+
+### Fixed
+
+- **A healthy hub no longer reports as degraded.** Pointer hit rate has been pinned at 0% since
+  v0.24 (every apply reported `deprecated_passthrough` with confidence 0.0), and three checks
+  read that as failure: the 25% floor in `health_baseline`, the `pointer_rate >= 0.4` gate on
+  `healthy`, and the low-confidence branch of the session-end nudge — which asked the user to
+  curate `## Next step` after *every* session. Errors are now the only degradation signal, and
+  the nudge fires only when an `[auto]` Open threads draft is actually awaiting curation.
+- `bump-version.sh` updates `.claude-plugin/plugin.json` too; it only knew the Cursor manifest,
+  so every bump left the two manifests skewed and the plugin test red.
+
+### Changed
+
+- **Open threads coverage replaces the pointer-extraction rate** in `memory-health` and
+  `memory-status`: share of projects (excluding `example.md`) carrying a thread, plus how many
+  were updated inside the retention window. Measured on disk, so it means something immediately
+  rather than after weeks of new metrics history.
+
+## [0.28.0] - 2026-07-21
+
+### Added
+
+- **Agent environment modules** (`scripts/lib/envs/`). An environment declares the rules of its
+  harness — transcript root and layout, trigger mechanism, anchor location, payload and reply
+  shape — while distill, merge, search and Open threads stay environment agnostic. Ships
+  `cursor` and `claude`; adding another is a module plus a registry entry.
+- **Claude Code support.** Native plugin (`.claude-plugin/`) with hooks for `SessionStart`,
+  `UserPromptSubmit`, `Stop`, `PreCompact` and `SessionEnd`. The user's `~/.claude/settings.json`
+  is not modified. `Stop` distills per turn to staging and `PreCompact` fires on the context
+  limit, so memory survives compaction and hard session kills.
+- **Claude transcript adapter** (`transcript_claude.py`). Rows normalize onto the Cursor row
+  shape, so tool calls and TodoWrite reconstruction are shared. Sidechain, bookkeeping and
+  `tool_result` rows are dropped.
+- **Shared hub write protocol** (`hub_lock.py`). Adopts the same `mkdir` lock the Cursor cron
+  script already takes; writes go through temp + `os.replace`. A hook that finds the hub busy
+  records staging and returns instead of blocking the session.
+- **Pointer injection for event-driven environments** (`routing_context.py`). Open threads are
+  injected at session start and prompt submit, debounced 30 minutes per session — the
+  equivalent of Cursor's `alwaysApply` rule.
+- Manifest entries carry `env`; `AGENT_MEMORY_ENV`, `AGENT_MEMORY_CURSOR_PROJECTS` and
+  `AGENT_MEMORY_CLAUDE_PROJECTS` overrides.
+
+### Changed
+
+- Transcript discovery, `find_transcript()` and `workspace_from_path()` cover every installed
+  environment. `projects_root` now defaults to "all environments" instead of Cursor's root.
+- Default hub is the neutral `~/.agent-memory/`; each environment keeps its own anchor pointing
+  at it, and an environment installed second inherits the existing hub.
+- `list-chats.py` reuses the shared scan and parser instead of its own Cursor-only copies.
+- `install-periodic-sync.sh` resolves the hub for its launchd log paths rather than hardcoding
+  `~/.cursor/agent-memory/logs`.
+
+### Fixed
+
+- Generic transcript adapter silently failed on exports nesting role and content under
+  `message` — it now unwraps them.
+- `hub_lock` read its timeouts as argument defaults, making them unpatchable.
+
+### Notes
+
+- Cursor dropped hook support in June 2026; that path is the 2-hourly launchd job.
+  `hooks/hooks.json` is retained for legacy and manual invocation only.
 
 ## [0.27.0] - 2026-07-12
 

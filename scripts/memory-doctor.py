@@ -87,8 +87,9 @@ def run_doctor(
             "unlinked": skills["unlinked"],
         },
         "path_resolution": (
-            "CLI --memory-home > env > anchor ~/.cursor/agent-memory/config.json "
-            "> default ~/.cursor/agent-memory/; plugin_root from bundle path"
+            "CLI --memory-home > env MEMORY_HOME > this environment's anchor "
+            "> any other environment's anchor > default ~/.agent-memory/; "
+            "plugin_root from bundle path"
         ),
     }
 

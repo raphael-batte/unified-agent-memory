@@ -12,6 +12,8 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from lib.memory_config import (  # noqa: E402
+    default_memory_home,
+    persist_all_anchors,
     persist_paths,
     resolve_memory_home,
     resolve_plugin_root,
@@ -21,8 +23,14 @@ from lib.migrate_hub import format_report_text, migrate_hub  # noqa: E402
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--from", dest="from_hub", required=True, help="Source hub path")
+    parser.add_argument("--from", dest="from_hub", help="Source hub path")
     parser.add_argument("--to", dest="to_hub", help="Destination hub (default: MEMORY_HOME)")
+    parser.add_argument(
+        "--to-shared",
+        action="store_true",
+        help="Adopt the neutral shared hub (~/.agent-memory) and point every "
+        "environment's anchor at it. Source defaults to the current hub.",
+    )
     parser.add_argument(
         "--mode",
         choices=("merge", "overwrite", "ignore-existing"),
@@ -58,8 +66,25 @@ def main() -> int:
             file=sys.stderr,
         )
 
-    from_path = Path(args.from_hub).expanduser().resolve()
-    to_path = resolve_memory_home(args.to_hub, script_file=__file__).resolve()
+    if args.to_shared:
+        # Source is wherever memory lives today; destination is the neutral hub.
+        from_path = resolve_memory_home(args.from_hub, script_file=__file__).resolve()
+        to_path = (
+            Path(args.to_hub).expanduser().resolve()
+            if args.to_hub
+            else default_memory_home().resolve()
+        )
+        if from_path == to_path:
+            print(f"Already on the shared hub: {to_path}")
+            if not args.dry_run:
+                for anchor in persist_all_anchors(to_path):
+                    print(f"  anchor: {anchor}")
+            return 0
+    else:
+        if not args.from_hub:
+            parser.error("provide --from, or --to-shared to migrate the current hub")
+        from_path = Path(args.from_hub).expanduser().resolve()
+        to_path = resolve_memory_home(args.to_hub, script_file=__file__).resolve()
     plugin_root = resolve_plugin_root(script_file=__file__, memory_home=to_path)
     if plugin_root is None:
         print("Error: could not resolve plugin root", file=sys.stderr)
@@ -82,6 +107,10 @@ def main() -> int:
 
     if not args.dry_run and report.ok:
         persist_paths(plugin_root.resolve(), to_path)
+        if args.to_shared:
+            for anchor in persist_all_anchors(to_path):
+                if not args.json:
+                    print(f"  anchor: {anchor}")
         if not args.json:
             print(f"  Hub: {to_path} (config updated)")
             print(

@@ -34,7 +34,7 @@ Then, if needed, read the resolved distill file → sections in order:
 2. **## Recent** — last distilled chats (drill transcript if thread is stale).
 3. **## Decisions** — durable constraints / architecture.
 
-**`## Next step` is deprecated** — ignore auto placeholders; do not write there.
+**`## Next step` was removed** (v0.29+) — the forward pointer is `## Open threads`.
 
 Full cross-hub view on demand:
 `python3 <plugin_root>/scripts/memory-pointer.py threads --days 30 --memory-home <hub>`

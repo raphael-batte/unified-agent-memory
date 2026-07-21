@@ -22,7 +22,7 @@ Hub staging → curated `chats/projects/<slug>.md`.
 1. Read staging — **Topic segments**, **Decision candidates**, Raw candidates, Rolling summary; map-reduce windows only if no segments.
 2. Update target `## Decisions` — write `[curated]` bullets; paraphrase durable facts only; preserve language. Leave `[extracted]` to hooks/`--apply`.
 3. Update `## Open threads` (forward pointer) — one `**[label]**` bullet per active direction; upsert by label, cap 5–7. Prefer `memory-pointer.py add-thread <project> <dir> "…"`.
-4. **`## Next step` is deprecated** — do not write there.
+4. **`## Next step` was removed** — the forward pointer is `## Open threads`.
 5. `verify-memory.py`; never paste secrets.
 
 ## Session end

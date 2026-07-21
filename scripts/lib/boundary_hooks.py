@@ -14,10 +14,12 @@ SCRIPT_DIR = Path(__file__).resolve().parents[1]
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from lib import envs  # noqa: E402
 from lib.boundary_crash import report_exception  # noqa: E402
 from lib.boundary_debounce import record_boundary_distill, should_skip_debounce  # noqa: E402
 from lib.chats_manifest import load_manifest, processed_by_id  # noqa: E402
-from lib.defaults import POINTER_LOW_CONFIDENCE  # noqa: E402
+from lib.envs.base import AgentEnv  # noqa: E402
+from lib.hub_lock import HubBusy, hub_lock  # noqa: E402
 from lib.distill_metrics import append_metric  # noqa: E402
 from lib.pointer_curation_queue import (  # noqa: E402
     enqueue as enqueue_pointer,
@@ -37,8 +39,46 @@ from lib.transcript import TranscriptSchemaError, find_transcript  # noqa: E402
 
 DEFAULT_PROJECTS_ROOT = Path.home() / ".cursor/projects"
 BOUNDARY_EVENTS = frozenset({"preCompact", "sessionEnd"})
+#: Per-turn distill — staging only, no project apply. Claude `Stop`; Cursor has no
+#: equivalent trigger, so this stays unused there.
+LIVE_EVENTS = frozenset({"liveDistill"})
 SESSION_START_CATCHUP_LIMIT = 5
 SESSION_START_DAYS = 180
+
+
+def resolve_env(payload: dict[str, Any]) -> AgentEnv:
+    """Which harness sent this payload.
+
+    Claude Code sets CLAUDE_PLUGIN_ROOT in hook processes; an explicit
+    AGENT_MEMORY_ENV wins over everything. A payload carrying `cwd` but no
+    `workspace_roots` is Claude's shape and settles the ambiguous case.
+    """
+    env = envs.detect_env()
+    if env.name == envs.DEFAULT_ENV_NAME and envs.CLAUDE_ENV.normalize_event(payload):
+        # Fell back to the default, but only Claude names this event — trust the payload.
+        return envs.CLAUDE_ENV
+    return env
+
+
+def canonical_event(payload: dict[str, Any], env: AgentEnv | None = None) -> str:
+    """Harness event name -> canonical name, or the raw value when unrecognized."""
+    env = env or resolve_env(payload)
+    normalized = env.normalize_event(payload)
+    if normalized:
+        return normalized
+    raw = payload.get("hook_event_name")
+    return raw if isinstance(raw, str) else "boundary"
+
+
+def workspace_roots(payload: dict[str, Any]) -> list[str]:
+    """Open workspaces — Cursor sends a list, Claude a single `cwd`."""
+    return resolve_env(payload).workspace_roots(payload)
+
+
+def format_hook_output(payload: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    """Shape a handler result for whichever harness invoked us."""
+    env = resolve_env(payload)
+    return env.format_output(canonical_event(payload, env), result)
 
 
 def chat_id_from_payload(payload: dict[str, Any]) -> str | None:
@@ -186,9 +226,6 @@ def distill_jsonl(
             "strategy": extract.get("strategy"),
             "truncated": bool(extract.get("truncated")),
             "secrets_redacted": int(extract.get("secrets_redacted") or 0),
-            "pointer_kind": apply_result.get("next_step_kind"),
-            "pointer_confidence": apply_result.get("pointer_confidence"),
-            "pointer_source": apply_result.get("pointer_source"),
             "incremental": bool((extract.get("incremental") or {}).get("is_incremental")),
             "window_count": len(extract.get("window_summaries") or []),
             "segment_count": len(extract.get("topic_segments") or []),
@@ -214,7 +251,7 @@ def run_boundary_distill(
     payload: dict[str, Any],
     *,
     memory_home: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
     strategy: str = "auto",
 ) -> dict[str, Any]:
     jsonl = resolve_transcript_jsonl(
@@ -224,7 +261,7 @@ def run_boundary_distill(
         _record_metric(
             memory_home,
             {
-                "event": payload.get("hook_event_name", "boundary"),
+                "event": canonical_event(payload),
                 "status": "skipped",
                 "reason": "no_transcript",
             },
@@ -232,7 +269,7 @@ def run_boundary_distill(
         return {"status": "skipped", "reason": "no_transcript"}
 
     chat_id = jsonl.stem
-    event = str(payload.get("hook_event_name") or "boundary")
+    event = canonical_event(payload)
 
     if should_skip_debounce(memory_home, chat_id):
         _record_metric(
@@ -271,28 +308,112 @@ def run_boundary_distill(
             "transcript": str(jsonl),
         }
 
-    result = distill_jsonl(
+    # The hub is shared with the Cursor cron job. If it holds the lock we do not
+    # stall an interactive session: write staging only and let the next trigger
+    # do the durable apply.
+    try:
+        with hub_lock(memory_home, owner=f"{event}-hook"):
+            result = distill_jsonl(
+                jsonl,
+                memory_home=memory_home,
+                projects_root=projects_root,
+                strategy=strategy,
+                event=event,
+            )
+    except HubBusy:
+        _record_metric(
+            memory_home,
+            {
+                "event": event,
+                "status": "deferred",
+                "chat_id": chat_id,
+                "reason": "hub_busy",
+            },
+        )
+        result = distill_jsonl(
+            jsonl,
+            memory_home=memory_home,
+            projects_root=projects_root,
+            strategy=strategy,
+            apply=False,
+            event=event,
+        )
+        result["deferred"] = "hub_busy"
+    result["event"] = event
+    return result
+
+
+def _prompt_submit_context(
+    payload: dict[str, Any],
+    *,
+    memory_home: Path,
+) -> dict[str, Any]:
+    """Open threads for a prompt-submit event, debounced per session."""
+    from lib.routing_context import record_injection, render_open_threads, should_inject
+
+    session_id = str(payload.get("session_id") or chat_id_from_payload(payload) or "")
+    if session_id and not should_inject(memory_home, session_id):
+        return {"status": "skipped", "reason": "debounced"}
+
+    roots = workspace_roots(payload)
+    workspace = Path(roots[0]).expanduser() if roots else None
+    try:
+        message = render_open_threads(memory_home, workspace)
+    except OSError:
+        return {"status": "skipped", "reason": "hub_unreadable"}
+
+    if not message:
+        return {"status": "skipped", "reason": "no_open_threads"}
+
+    if session_id:
+        try:
+            record_injection(memory_home, session_id)
+        except OSError:
+            pass
+    return {"status": "injected", "user_message": message}
+
+
+def _run_live_distill_for(
+    payload: dict[str, Any],
+    *,
+    memory_home: Path,
+    projects_root: Path | None = None,
+) -> dict[str, Any]:
+    """Mid-session distill: staging + manifest, no project apply.
+
+    Shared by `sessionStart` (catch up on a resumed chat) and Claude's per-turn
+    `Stop` event, so memory survives a session that never exits cleanly.
+    """
+    jsonl = resolve_transcript_jsonl(
+        payload, memory_home=memory_home, projects_root=projects_root
+    )
+    if jsonl is None:
+        return {"status": "skipped", "reason": "no_transcript"}
+
+    chat_id = jsonl.stem
+    if should_skip_debounce(memory_home, chat_id):
+        return {"status": "skipped", "reason": "debounced", "chat_id": chat_id}
+    if not should_live_distill(memory_home, chat_id, jsonl):
+        return {"status": "skipped", "reason": "already_distilled", "chat_id": chat_id}
+    return run_live_distill(
+        distill_jsonl,
         jsonl,
         memory_home=memory_home,
         projects_root=projects_root,
-        strategy=strategy,
-        event=event,
     )
-    result["event"] = event
-    return result
 
 
 def run_session_start_catchup(
     payload: dict[str, Any],
     *,
     memory_home: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
     days: int = SESSION_START_DAYS,
     limit: int = SESSION_START_CATCHUP_LIMIT,
     strategy: str = "auto",
 ) -> dict[str, Any]:
     """Background distill for pending chats in open workspace(s)."""
-    slugs = slugs_from_workspace_roots(payload.get("workspace_roots") or [])
+    slugs = slugs_from_workspace_roots(workspace_roots(payload))
     if not slugs:
         return {
             "status": "catchup",
@@ -370,7 +491,7 @@ def handle_session_start(
     payload: dict[str, Any],
     *,
     memory_home: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
 ) -> dict[str, Any]:
     """sessionStart — first-run bootstrap, catch-up distill, pointer queue."""
     _record_metric(
@@ -379,7 +500,7 @@ def handle_session_start(
             "event": "sessionStart",
             "status": "started",
             "workspace_slugs": sorted(
-                slugs_from_workspace_roots(payload.get("workspace_roots") or [])
+                slugs_from_workspace_roots(workspace_roots(payload))
             ),
         },
     )
@@ -412,34 +533,15 @@ def handle_session_start(
         result["catchup"] = {"status": "skipped", "reason": "first_run_pending"}
         return result
 
-    slugs = slugs_from_workspace_roots(payload.get("workspace_roots") or [])
+    slugs = slugs_from_workspace_roots(workspace_roots(payload))
     catchup = run_session_start_catchup(
         payload, memory_home=memory_home, projects_root=projects_root
     )
     result["catchup"] = catchup
 
-    live_result: dict[str, Any] = {"status": "skipped", "reason": "no_transcript"}
-    jsonl = resolve_transcript_jsonl(
+    result["live_distill"] = _run_live_distill_for(
         payload, memory_home=memory_home, projects_root=projects_root
     )
-    if jsonl is not None:
-        chat_id = jsonl.stem
-        if should_skip_debounce(memory_home, chat_id):
-            live_result = {"status": "skipped", "reason": "debounced", "chat_id": chat_id}
-        elif should_live_distill(memory_home, chat_id, jsonl):
-            live_result = run_live_distill(
-                distill_jsonl,
-                jsonl,
-                memory_home=memory_home,
-                projects_root=projects_root,
-            )
-        else:
-            live_result = {
-                "status": "skipped",
-                "reason": "already_distilled",
-                "chat_id": chat_id,
-            }
-    result["live_distill"] = live_result
 
     try:
         result["pointer_feedback"] = log_session_start_pointer_feedback(
@@ -451,45 +553,63 @@ def handle_session_start(
     except OSError:
         result["pointer_feedback"] = []
 
-    msg = session_start_user_message(
-        memory_home, payload.get("workspace_roots") or []
-    )
+    msg = session_start_user_message(memory_home, workspace_roots(payload))
     if msg:
         result["user_message"] = msg
     return result
 
 
 def _session_end_user_message(distill: dict[str, Any]) -> str | None:
+    """Nudge only when an ``[auto]`` Open threads draft is waiting for curation.
+
+    The old branches keyed off ``next_step_kind`` and ``pointer_confidence``,
+    both of which have been frozen at ``deprecated_passthrough`` / 0.0 since
+    ``## Next step`` was retired — so every single session end asked the user to
+    curate a section the framework no longer writes.
+    """
     if distill.get("status") != "distilled":
         return None
     apply_result = distill.get("apply_result") or {}
-    kind = apply_result.get("next_step_kind")
-    conf = float(apply_result.get("pointer_confidence") or 0.0)
+    draft_result = distill.get("draft_result") or {}
+    should_curate, _reason = needs_enqueue(apply_result, draft_result=draft_result)
+    if not should_curate:
+        return None
     project_rel = distill.get("project_rel", "chats/projects/<slug>.md")
-    if kind in ("placeholder_empty", "placeholder_stale"):
-        return (
-            f"[agent-memory] Curate ## Next step in {project_rel} — "
-            "use templates/chats/pointer-curate-prompt.md + latest merge-staging."
-        )
-    if conf < POINTER_LOW_CONFIDENCE:
-        return (
-            f"[agent-memory] Low-confidence pointer ({conf:.2f}) in {project_rel} — "
-            "curate ## Next step (pointer-curate-prompt.md)."
-        )
-    return None
+    return (
+        f"[agent-memory] Curate the [auto] Open thread in {project_rel} — "
+        "use templates/chats/pointer-curate-prompt.md + latest merge-staging."
+    )
 
 
 def handle_boundary(
     payload: dict[str, Any],
     *,
     memory_home: Path,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
 ) -> dict[str, Any]:
-    event = payload.get("hook_event_name", "")
+    env = resolve_env(payload)
+    event = canonical_event(payload, env)
     result: dict[str, Any] = {
         "event": event,
+        "env": env.name,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
+
+    if event == "promptSubmit":
+        # Routing: put the forward pointer in front of the agent when it is needed,
+        # rather than parking it in context for the whole session.
+        result.update(
+            _prompt_submit_context(payload, memory_home=memory_home)
+        )
+        return result
+
+    if event in LIVE_EVENTS:
+        # Per-turn distill: staging + manifest only, never touches the project file.
+        result["live_distill"] = _run_live_distill_for(
+            payload, memory_home=memory_home, projects_root=projects_root
+        )
+        result["status"] = result["live_distill"].get("status", "ok")
+        return result
 
     if event not in BOUNDARY_EVENTS:
         result["status"] = "ignored"
@@ -557,7 +677,7 @@ def dispatch(
     proot = (
         projects_root.expanduser().resolve()
         if projects_root
-        else DEFAULT_PROJECTS_ROOT
+        else None  # None = every installed environment
     )
     if mode == "session-start":
         return handle_session_start(payload, memory_home=hub, projects_root=proot)
@@ -582,6 +702,11 @@ def main(argv: list[str] | None = None) -> int:
         help="JSON file (default: stdin)",
     )
     parser.add_argument("-o", "--output", help="Write JSON result to file")
+    parser.add_argument(
+        "--hook-output",
+        action="store_true",
+        help="Emit the harness-shaped reply instead of the full diagnostic result",
+    )
     args = parser.parse_args(argv)
 
     if args.input:
@@ -623,7 +748,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    out = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
+    payload_out = format_hook_output(payload, result) if args.hook_output else result
+    out = json.dumps(payload_out, indent=2, ensure_ascii=False) + "\n"
     if args.output:
         Path(args.output).expanduser().write_text(out, encoding="utf-8")
     else:

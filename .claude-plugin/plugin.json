@@ -1,0 +1,25 @@
+{
+  "name": "agent-memory",
+  "description": "Persistent memory shared across agent environments: rolling Open threads forward pointer (30d, cross-hub), project distill, global context, feedback and hub search. Distills on Stop, PreCompact and SessionEnd so memory survives compaction and hard session kills. One local hub shared with Cursor; secrets redacted on distill. No cloud required.",
+  "version": "0.29.2",
+  "author": {
+    "name": "raphaelbatte"
+  },
+  "homepage": "https://github.com/raphael-batte/unified-agent-memory",
+  "repository": "https://github.com/raphael-batte/unified-agent-memory",
+  "license": "MIT",
+  "keywords": [
+    "memory",
+    "context",
+    "distill",
+    "claude",
+    "cursor",
+    "transcripts",
+    "hooks",
+    "search",
+    "open-threads",
+    "routing"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/claude/hooks.json"
+}

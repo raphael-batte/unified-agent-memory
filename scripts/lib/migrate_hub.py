@@ -132,9 +132,12 @@ def dest_is_unchanged_template(
 
 
 def _copy_file(src: Path, dest: Path, *, dry_run: bool) -> None:
+    if dry_run:
+        # A dry run must leave the filesystem untouched — creating the parent
+        # directories here left an empty destination tree behind.
+        return
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if not dry_run:
-        shutil.copy2(src, dest)
+    shutil.copy2(src, dest)
 
 
 def migrate_manifest_file(

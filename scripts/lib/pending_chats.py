@@ -6,20 +6,28 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from lib import envs
 from lib.chats_manifest import load_manifest, processed_by_id
 from lib.distill_watermark import needs_distill_with_watermark
-from lib.transcript_cursor import build_transcript_index, workspace_slug
+from lib.envs.base import AgentEnv
+from lib.transcript_cursor import workspace_slug
 
 DEFAULT_PROJECTS_ROOT = Path.home() / ".cursor/projects"
 
 
-def _chat_row(jsonl: Path, chat_id: str, projects_root: Path) -> dict[str, Any]:
-    workspace = jsonl.parts[-4] if len(jsonl.parts) >= 4 else "unknown"
+def _chat_row(
+    jsonl: Path,
+    chat_id: str,
+    projects_root: Path,
+    env: AgentEnv,
+) -> dict[str, Any]:
+    workspace = env.workspace_from_path(jsonl, projects_root)
     st = jsonl.stat()
     return {
         "id": chat_id,
         "project": workspace_slug(workspace),
         "workspace": workspace,
+        "env": env.name,
         "mtime": st.st_mtime,
         "date": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d"),
         "path": str(jsonl.resolve()),
@@ -54,15 +62,30 @@ def slugs_from_workspace_roots(roots: list[str] | None) -> set[str]:
     return {s for s in slugs if s}
 
 
+def _scan_targets(projects_root: Path | None) -> list[tuple[AgentEnv, Path]]:
+    """(environment, root) pairs to scan.
+
+    With an explicit root we probe it with every environment: the layouts are
+    disjoint (Cursor nests under ``agent-transcripts/``, Claude is flat), so at most
+    one of them matches and callers keep passing a single path as before.
+    """
+    if projects_root is not None:
+        return [(env, projects_root) for env in envs.all_envs()]
+    return [(env, env.transcript_root()) for env in envs.available_envs()]
+
+
 def scan_transcript_rows(
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
 ) -> list[dict[str, Any]]:
+    """Inventory every environment's transcripts — the hub is shared."""
     rows: list[dict[str, Any]] = []
-    index = build_transcript_index(projects_root)
-    for chat_id, jsonl in index.items():
-        if "/subagents/" in str(jsonl):
-            continue
-        rows.append(_chat_row(jsonl, chat_id, projects_root))
+    seen: set[str] = set()
+    for env, root in _scan_targets(projects_root):
+        for chat_id, jsonl in env.build_transcript_index(root).items():
+            if env.is_ignored(jsonl) or chat_id in seen:
+                continue
+            seen.add(chat_id)
+            rows.append(_chat_row(jsonl, chat_id, root, env))
     rows.sort(key=lambda r: r["mtime"], reverse=True)
     return rows
 
@@ -103,7 +126,7 @@ def _pending_in_rows(
 def list_chats_needing_distill(
     memory_home: Path,
     *,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
     days: int = 180,
     workspace_slugs: set[str] | None = None,
     limit: int | None = None,
@@ -122,7 +145,7 @@ def list_chats_needing_distill(
 def scan_chat_stats(
     memory_home: Path,
     *,
-    projects_root: Path = DEFAULT_PROJECTS_ROOT,
+    projects_root: Path | None = None,
     windows: tuple[int, ...] = (90, 180),
 ) -> dict[str, Any]:
     """

@@ -54,7 +54,7 @@ All changes go through PR → `main`. CI runs tests, gitleaks, and version-check
 After merge to `main`:
 
 ```bash
-git tag -a v$(cat VERSION) -m "cursor-agent-memory $(cat VERSION)"
+git tag -a v$(cat VERSION) -m "unified-agent-memory $(cat VERSION)"
 git push origin main --tags   # when remote exists
 ```
 

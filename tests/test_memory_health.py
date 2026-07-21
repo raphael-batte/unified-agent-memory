@@ -48,8 +48,8 @@ class TestMemoryHealth(unittest.TestCase):
             data = mh.enrich_with_baseline(hub, data, update_baseline=True)
             self.assertEqual(data["distilled"], 1)
             self.assertEqual(data["debounced"], 1)
-            self.assertEqual(data["pointer_extracted_rate"], 1.0)
             self.assertEqual(data["baseline"]["samples"], 1)
+            self.assertTrue(data["healthy"])
 
     def test_session_pointer_hit_rate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

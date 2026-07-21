@@ -1,10 +1,13 @@
 # Migration & AI workflow
 
-Move an existing memory hub to this framework, install the Cursor plugin, and distill chats.
+Move an existing memory hub to this framework, install the plugin in Cursor and/or
+Claude Code, and distill chats.
 
 **Bundle (git / plugin):** skills, scripts, hooks — replaceable.  
-**Anchor:** `~/.cursor/agent-memory/config.json` — `memory_home` pointer (survives updates).  
-**Hub (never git):** `$MEMORY_HOME` — context, feedback, chats.
+**Anchors:** `~/.cursor/agent-memory/config.json` and `~/.claude/agent-memory/config.json` —
+each a `memory_home` pointer (survives updates). Both point at the **same** hub.  
+**Hub (never git):** `$MEMORY_HOME` — context, feedback, chats. Default `~/.agent-memory/`,
+shared by every environment.
 
 Setup: [ONBOARDING.md](ONBOARDING.md)
 
@@ -13,7 +16,7 @@ Setup: [ONBOARDING.md](ONBOARDING.md)
 ## 1. Fresh install
 
 ```bash
-# from your clone of github.com/raphael-batte/cursor-agent-memory
+# from your clone of github.com/raphael-batte/unified-agent-memory
 bash scripts/install-local.sh
 # Reload Cursor — first sessionStart bootstraps hub; or:
 bash scripts/init-memory.sh
@@ -32,16 +35,16 @@ Paths: anchor + `$MEMORY_HOME/config.json` (written by `init-memory` / `memory-d
 Example anchor:
 
 ```json
-{ "memory_home": "/Users/you/.cursor/agent-memory" }
+{ "memory_home": "/home/example-user/.agent-memory" }
 ```
 
 Example hub `config.json`:
 
 ```json
 {
-  "plugin_root": "/Users/you/.cursor/plugins/local/agent-memory",
-  "framework_root": "/Users/you/.cursor/plugins/local/agent-memory",
-  "memory_home": "/Users/you/.cursor/agent-memory"
+  "plugin_root": "/home/example-user/.cursor/plugins/local/agent-memory",
+  "framework_root": "/home/example-user/.cursor/plugins/local/agent-memory",
+  "memory_home": "/home/example-user/.agent-memory"
 }
 ```
 
@@ -59,10 +62,24 @@ Restores a backup into `$MEMORY_HOME`. **Default mode is `--merge`** (order-inde
 ```bash
 bash scripts/migrate-memory.sh \
   --from /path/to/old-hub \
-  --to "$HOME/.cursor/agent-memory"
+  --to "$HOME/.agent-memory"
 ```
 
 Flags: `--overwrite` (source wins everywhere) · `--ignore-existing` (legacy, deprecated) · `--dry-run` · `--json`
+
+### Upgrading from a per-environment hub (pre-0.28)
+
+Older installs kept the hub inside Cursor's anchor directory. One command moves it to the
+shared location and repoints **every** environment's anchor:
+
+```bash
+python3 scripts/migrate-memory.py --to-shared --dry-run   # inspect first
+python3 scripts/migrate-memory.py --to-shared
+```
+
+Idempotent — running it again on an already-shared hub only re-asserts the anchors. Nothing
+is deleted from the old location; move it aside yourself once you have verified the new hub
+with `python3 scripts/verify-memory.py --strict`.
 
 Then:
 
@@ -84,7 +101,7 @@ If you previously used symlink skills or global hooks:
 | Remove | Why |
 |--------|-----|
 | `~/.cursor/skills/agent-memory` symlink | Plugin provides skill from bundle |
-| `agent-memory-*` in `~/.cursor/hooks.json` | Plugin provides `hooks/hooks.json` |
+| `agent-memory-*` in `~/.cursor/hooks.json` | Plugin provides `hooks/cursor/hooks.json` |
 | `~/.cursor/hooks/agent-memory.env` (optional) | Anchor + plugin hooks replace env file |
 
 Then `install-local.sh` + Reload + `init-memory.sh` (idempotent).

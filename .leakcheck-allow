@@ -1,0 +1,9 @@
+# Generic technology names cleared for use in docs and examples.
+# Never add a client, product, or machine name here — that is the data this check exists to stop.
+figma
+flutter
+
+# Former names of this repo. They stay in legacy on-disk paths that existing
+# installs still read, so the checker must not treat them as personal data.
+cursor-agent-memory
+agent-memory-unified

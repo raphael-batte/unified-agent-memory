@@ -1,0 +1,13 @@
+{
+  "name": "agent-memory",
+  "owner": {
+    "name": "raphaelbatte"
+  },
+  "plugins": [
+    {
+      "name": "agent-memory",
+      "source": "./",
+      "description": "Persistent memory shared across agent environments — Open threads, project distill, global context, feedback and hub search."
+    }
+  ]
+}

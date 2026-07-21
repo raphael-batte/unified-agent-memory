@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from lib import transcript_claude as claude
 from lib import transcript_cursor as cursor
 from lib import transcript_generic as generic
 from lib.transcript_cursor import ParseStats, TranscriptSchemaError, workspace_slug
@@ -22,15 +23,32 @@ __all__ = [
 
 def find_transcript(
     uuid: str,
-    projects_root: Path,
+    projects_root: Path | None = None,
     *,
     memory_home: Path | None = None,
     use_cache: bool = True,
 ) -> Path | None:
+    """Locate a transcript in any installed environment.
+
+    ``projects_root=None`` searches every environment at its own root. An explicit
+    root is probed with each environment's indexer — the layouts are disjoint, so at
+    most one matches and existing callers keep working unchanged.
+    """
+    from lib import envs
+
     needle = uuid.strip()
-    path = cursor.find_transcript(needle, projects_root, use_cache=use_cache)
-    if path is not None:
-        return path
+    if not needle:
+        return None
+
+    if projects_root is not None:
+        targets = [(env, projects_root) for env in envs.all_envs()]
+    else:
+        targets = [(env, env.transcript_root()) for env in envs.available_envs()]
+
+    for env, root in targets:
+        path = env.find_transcript(needle, root, use_cache=use_cache)
+        if path is not None:
+            return path
 
     # Hub fallback builds a path from the uuid — only allow a bare safe id so a
     # crafted uuid (e.g. "../../etc/x") cannot read files outside transcripts/.
@@ -60,10 +78,24 @@ def extract_raw_user_texts(jsonl: Path) -> tuple[list[str], ParseStats, str]:
     return parsed.user_texts(), parsed.stats, parsed.adapter
 
 
-def workspace_from_path(jsonl: Path, projects_root: Path) -> str:
-    ws = cursor.workspace_from_path(jsonl, projects_root)
-    if ws != "unknown":
-        return ws
+def workspace_from_path(jsonl: Path, projects_root: Path | None = None) -> str:
+    """Workspace id owning this transcript.
+
+    ``projects_root=None`` tries every installed environment's root. Claude's flat
+    layout needs no nesting rule — it falls through to the parent directory name,
+    which is exactly its encoded workspace path.
+    """
+    from lib import envs
+
+    roots = (
+        [projects_root]
+        if projects_root is not None
+        else [env.transcript_root() for env in envs.available_envs()]
+    )
+    for root in roots:
+        ws = cursor.workspace_from_path(jsonl, root)
+        if ws != "unknown":
+            return ws
     try:
         rel = jsonl.resolve().parts
         if "transcripts" in rel:
@@ -79,4 +111,5 @@ def clear_transcript_cache() -> None:
     from lib.transcript_parse import clear_parse_cache
 
     cursor.clear_transcript_cache()
+    claude.clear_transcript_cache()
     clear_parse_cache()

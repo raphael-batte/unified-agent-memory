@@ -28,7 +28,7 @@ Use when a session had a clear outcome but **## Open threads** was not updated.
 
 ## Do not use
 
-- **`memory-pointer.py set`** — deprecated (`## Next step` is retired).
+- **`memory-pointer.py set`** — removed; `## Next step` no longer exists.
 - Auto-distill does not write Open threads — curation is agent/CLI only.
 
 ## After save

@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO="raphael-batte/cursor-agent-memory"
+REPO="raphael-batte/unified-agent-memory"
 GITHUB_DESCRIPTION='Remembers what matters between Cursor sessions: preferences, project context, and where you left off, in private files that survive plugin updates. Memory updates automatically; secrets are never stored.'
 VERSION="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION")"
 

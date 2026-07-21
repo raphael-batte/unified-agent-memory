@@ -1,13 +1,13 @@
 {
   "name": "agent-memory",
   "displayName": "Agent Memory",
-  "version": "0.27.0",
+  "version": "0.29.2",
   "description": "Persistent memory for Cursor: rolling Open threads forward pointer (30d cross-hub), project distill, global context, feedback, and hub search. Auto-distill on session boundaries; [auto] thread drafts for agent curation. Private local hub, secrets redacted. No cloud required.",
   "author": {
     "name": "raphaelbatte"
   },
-  "homepage": "https://github.com/raphael-batte/cursor-agent-memory",
-  "repository": "https://github.com/raphael-batte/cursor-agent-memory",
+  "homepage": "https://github.com/raphael-batte/unified-agent-memory",
+  "repository": "https://github.com/raphael-batte/unified-agent-memory",
   "license": "MIT",
   "keywords": [
     "memory",
@@ -31,5 +31,5 @@
   ],
   "logo": "assets/logo.svg",
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/cursor/hooks.json"
 }

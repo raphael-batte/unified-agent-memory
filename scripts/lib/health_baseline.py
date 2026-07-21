@@ -1,4 +1,13 @@
-"""Rolling baseline for distill health — detect degradation vs personal norm."""
+"""Rolling baseline for distill health — detect degradation vs personal norm.
+
+Pointer hit rate used to drive degradation here. It cannot any more: since
+`## Next step` was retired (v0.24) every apply reports `deprecated_passthrough`,
+so the rate is pinned at 0% and both rules fired on a perfectly healthy hub —
+a permanent ⚠ in `memory-status` and a notification on every `memory-health
+--notify` run. Errors are the only trustworthy signal until the Open-threads
+metrics land (see `open_thread_drafted` in the distill metric, added separately);
+a rate needs weeks of history before a floor means anything.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +17,6 @@ from pathlib import Path
 from typing import Any
 
 BASELINE_FILENAME = "health-baseline.json"
-DEFAULT_DEGRADATION_DROP = 0.15
-MIN_BASELINE_SAMPLES = 3
 MIN_WINDOW_DISTILLS = 2
 
 
@@ -20,15 +27,14 @@ def baseline_path(memory_home: Path) -> Path:
 def load_baseline(memory_home: Path) -> dict[str, Any]:
     path = baseline_path(memory_home)
     if not path.is_file():
-        return {"samples": [], "pointer_hit_rates": []}
+        return {"samples": []}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return {"samples": [], "pointer_hit_rates": []}
+        return {"samples": []}
     if not isinstance(data, dict):
-        return {"samples": [], "pointer_hit_rates": []}
+        return {"samples": []}
     data.setdefault("samples", [])
-    data.setdefault("pointer_hit_rates", [])
     return data
 
 
@@ -42,7 +48,6 @@ def save_baseline(memory_home: Path, data: dict[str, Any]) -> None:
 def record_snapshot(
     memory_home: Path,
     *,
-    pointer_hit_rate: float | None,
     distilled_count: int,
     error_count: int,
     max_samples: int = 30,
@@ -56,21 +61,15 @@ def record_snapshot(
     samples.append(
         {
             "date": today,
-            "pointer_hit_rate": pointer_hit_rate,
             "distilled": distilled_count,
             "errors": error_count,
         }
     )
-    samples = samples[-max_samples:]
-    rates = [
-        float(s["pointer_hit_rate"])
-        for s in samples
-        if s.get("pointer_hit_rate") is not None
-    ]
-    data["samples"] = samples
-    data["pointer_hit_rates"] = rates
-    if rates:
-        data["pointer_hit_median"] = sorted(rates)[len(rates) // 2]
+    data["samples"] = samples[-max_samples:]
+    # Retired keys are dropped rather than migrated — a stale median would only
+    # invite someone to wire the old rule back up.
+    for key in ("pointer_hit_rates", "pointer_hit_median"):
+        data.pop(key, None)
     save_baseline(memory_home, data)
     return data
 
@@ -78,19 +77,12 @@ def record_snapshot(
 def check_degradation(
     window_stats: dict[str, Any],
     baseline: dict[str, Any],
-    *,
-    drop_threshold: float = DEFAULT_DEGRADATION_DROP,
 ) -> dict[str, Any]:
-    """Compare 7d window to rolling median baseline."""
-    current = window_stats.get("pointer_extracted_rate")
-    median = baseline.get("pointer_hit_median")
-    samples = baseline.get("pointer_hit_rates") or []
-    distilled = int(window_stats.get("distilled") or 0)
+    """Flag a degraded window. Errors only — see the module docstring."""
     errors = int(window_stats.get("errors") or 0)
 
     out: dict[str, Any] = {
-        "baseline_samples": len(samples),
-        "baseline_median_hit_rate": median,
+        "baseline_samples": len(baseline.get("samples") or []),
         "degraded": False,
         "degradation_reason": None,
     }
@@ -98,27 +90,5 @@ def check_degradation(
     if errors > 0:
         out["degraded"] = True
         out["degradation_reason"] = f"errors={errors}"
-
-    if (
-        current is not None
-        and median is not None
-        and len(samples) >= MIN_BASELINE_SAMPLES
-        and distilled >= MIN_WINDOW_DISTILLS
-        and float(current) < float(median) - drop_threshold
-    ):
-        out["degraded"] = True
-        out["degradation_reason"] = (
-            f"pointer_hit {float(current):.0%} vs baseline median {float(median):.0%}"
-        )
-        out["pointer_delta"] = float(current) - float(median)
-
-    if (
-        current is not None
-        and distilled >= MIN_WINDOW_DISTILLS
-        and float(current) < 0.25
-        and len(samples) < MIN_BASELINE_SAMPLES
-    ):
-        out["degraded"] = True
-        out["degradation_reason"] = f"pointer_hit {float(current):.0%} below 25% floor"
 
     return out

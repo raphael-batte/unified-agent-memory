@@ -93,17 +93,19 @@ for f in "$REPO_ROOT/README.md" "$REPO_ROOT/SKILL.md" "$REPO_ROOT/skills/agent-m
   fi
 done
 
-PLUGIN_JSON="$REPO_ROOT/.cursor-plugin/plugin.json"
-if [[ -f "$PLUGIN_JSON" ]]; then
-  python3 - "$PLUGIN_JSON" "$NEW" <<'PY'
+# Both plugin manifests ship from this repo; tests fail on a version skew.
+for PLUGIN_JSON in "$REPO_ROOT/.cursor-plugin/plugin.json" "$REPO_ROOT/.claude-plugin/plugin.json"; do
+  if [[ -f "$PLUGIN_JSON" ]]; then
+    python3 - "$PLUGIN_JSON" "$NEW" <<'PY'
 import json, sys
 path, ver = sys.argv[1], sys.argv[2]
 data = json.loads(open(path, encoding="utf-8").read())
 data["version"] = ver
 open(path, "w", encoding="utf-8").write(json.dumps(data, indent=2) + "\n")
 PY
-fi
+  fi
+done
 
 echo "Bumped: ${CURRENT} → ${NEW}"
 echo "CHANGELOG: ### ${SECTION} — ${MSG}"
-echo "Stage: git add VERSION CHANGELOG.md README.md SKILL.md skills/agent-memory/SKILL.md .cursor-plugin/plugin.json"
+echo "Stage: git add VERSION CHANGELOG.md README.md SKILL.md skills/agent-memory/SKILL.md .cursor-plugin/plugin.json .claude-plugin/plugin.json"

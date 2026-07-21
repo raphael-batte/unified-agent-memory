@@ -1,4 +1,8 @@
-"""Framework must not hardcode user-specific paths or non-fictional example names."""
+"""Framework must not hardcode user-specific paths or personal project names.
+
+Tests ship in the public repo. Examples and fixtures use an allowlisted set of
+fictional identifiers only — never real client/product/machine names, even encoded.
+"""
 
 from __future__ import annotations
 
@@ -8,17 +12,23 @@ from pathlib import Path
 
 from helpers import REPO_ROOT
 
+# Documented shared hub is fine. Machine- or checkout-tied paths are not.
 FORBIDDEN = [
     re.compile(r"~/Work/"),
     re.compile(r"~/agent-memory"),
     re.compile(r"\$HOME/agent-memory"),
-    re.compile(r"~/.agent-memory"),
+    # Pre-rename legacy config dir — read-only fallback, never a new write target.
     re.compile(r"~/.config/cursor-agent-memory"),
     re.compile(r"/Users/[^/\s]+/Work/"),
 ]
-# Cursor integration paths are allowed in these locations only
 CURSOR_OK = re.compile(r"~/.cursor/")
-SKIP_FILES = {"CHANGELOG.md", "test_no_hardcoded_paths.py"}
+SKIP_FILES = {
+    "CHANGELOG.md",
+    "test_no_hardcoded_paths.py",
+    # States the shapes it forbids, so scanning it flags itself.
+    "test_check_local_leaks.py",
+    "check-local-leaks.py",
+}
 SKIP_SUFFIXES = {".jsonl"}
 ALLOW_IF_ONLY_CURSOR = {
     "scripts/lib/config.sh",
@@ -33,23 +43,38 @@ ALLOW_IF_ONLY_CURSOR = {
 }
 CURSOR_HOOK_GLOB = "templates/cursor-hooks/"
 
-# Encoded maintainer denylist — decoded at runtime only (not plaintext in git).
-_DENY_CODES: tuple[tuple[int, ...], ...] = (
-    (116, 114, 101, 110, 100, 121, 109, 101, 110),
-    (115, 116, 101, 97, 107, 108, 111, 118, 101, 114, 115),
-    (115, 116, 101, 97, 107, 108, 111, 118, 101, 114),
-    (115, 100, 109, 45, 117, 105, 50, 48, 50, 54),
-    (115, 100, 109, 47, 117, 105, 50, 48, 50, 54),
-    (119, 111, 114, 107, 47, 115, 100, 109),
-    (116, 114, 101, 110, 100, 121, 109, 101, 110, 46, 114, 117),
-    (114, 97, 112, 104, 98, 97, 116, 116, 101, 46, 99, 111, 109, 47, 116, 101, 115, 116),
+# Fictional identifiers allowed in examples / fixtures / docs.
+# Add here when introducing a new generic name; do not add real products.
+APPROVED_FICTIONAL = frozenset(
+    {
+        "example-app",
+        "example-user",
+        "other-app",
+        "alpha-hub",
+        "beta-app",
+        "widget-ui",
+        "acme",
+        "example.org",
+        "example.com",
+    }
 )
-EXAMPLE_DENY = tuple("".join(chr(c) for c in codes) for codes in _DENY_CODES)
 
-_EXAMPLE_SCAN_ROOTS = ("scripts", "tests", "templates", "docs")
+# Structural patterns that look like a maintainer's real workspace encoding.
+# These are generic shape checks — not a personal denylist.
+SUSPICIOUS_LOCAL_SHAPES = [
+    # Encoded denylist / obfuscation of real names (bytes-as-ints tuples).
+    re.compile(
+        r"_DENY_CODES\s*[:=]|EXAMPLE_DENY\s*=\s*tuple\(\s*\"\"\.join\(chr",
+        re.M,
+    ),
+    # Home-dir style paths with a non-example username segment.
+    re.compile(r"/Users/(?!example-user|me|alice)[A-Za-z][A-Za-z0-9_-]{2,}/"),
+    re.compile(r"/home/(?!example-user|me|alice)[A-Za-z][A-Za-z0-9_-]{2,}/"),
+]
+
+_EXAMPLE_SCAN_ROOTS = ("scripts", "tests", "templates", "docs", "hooks", "rules", "skills")
 _EXAMPLE_SCAN_FILES = (
     "README.md",
-    "CHANGELOG.md",
     "ARCHITECTURE.md",
     "INSTRUCTIONS.md",
     "ONBOARDING.md",
@@ -105,24 +130,27 @@ class TestNoHardcodedPaths(unittest.TestCase):
                 break
         self.assertEqual(offenders, [], "Hardcoded user paths:\n" + "\n".join(offenders))
 
-    def test_examples_use_fictional_names(self) -> None:
-        violations: list[str] = []
+    def test_no_obfuscated_or_personal_path_shapes(self) -> None:
+        """Catch reintroduction of encoded personal denylists / real home paths."""
         self_path = Path(__file__).resolve()
+        violations: list[str] = []
         for path in _iter_example_scan_files():
-            if path.resolve() == self_path:
+            if path.resolve() == self_path or path.name in SKIP_FILES:
                 continue
-            try:
-                text = path.read_text(encoding="utf-8", errors="replace").lower()
-            except OSError as exc:
-                self.fail(f"cannot read {path}: {exc}")
-            for needle in EXAMPLE_DENY:
-                if needle in text:
-                    violations.append(f"{path.relative_to(REPO_ROOT)}: matched deny token")
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for pat in SUSPICIOUS_LOCAL_SHAPES:
+                if pat.search(text):
+                    violations.append(f"{path.relative_to(REPO_ROOT)}: {pat.pattern[:60]}")
         self.assertEqual(
             violations,
             [],
-            msg="Non-fictional identifier in bundle:\n" + "\n".join(violations),
+            msg="Local / obfuscated naming shape in bundle:\n" + "\n".join(violations),
         )
+
+    def test_approved_fictional_set_is_documented(self) -> None:
+        """Keep the allowlist non-empty and aligned with CONTRIBUTING examples."""
+        for name in ("example-app", "example-user", "other-app"):
+            self.assertIn(name, APPROVED_FICTIONAL)
 
 
 if __name__ == "__main__":

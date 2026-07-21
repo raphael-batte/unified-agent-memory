@@ -2,30 +2,43 @@
 
 ## What this is
 
-Cursor has no memory between sessions. Each new chat starts from scratch, with no knowledge of your projects, past decisions, or where you left off. This plugin gives it persistent memory across three layers:
+Coding agents have no memory between sessions. Each new chat starts from scratch, with no knowledge of your projects, past decisions, or where you left off. This plugin gives them persistent memory across three layers:
 
 - **Who you are** — global context, projects, cross-repo rules
 - **What worked** — feedback on good and bad agent decisions
 - **Where you left off** — distilled chat history with **Open threads** (rolling 30d forward pointer), updated on session boundaries
 
-Memory lives in private files outside the plugin bundle and survives updates. Secrets are redacted on every distill.
+It runs in **Cursor and Claude Code**, and both share **one hub**: a chat in either environment feeds the same Open threads, decisions and search index. Memory lives in private files outside the plugin bundle and survives updates. Secrets are redacted on every distill.
+
+| Environment | Trigger | Pointer delivery |
+|---|---|---|
+| **Cursor** | launchd job every 30m (Cursor dropped hook support in June 2026) | `alwaysApply` rule |
+| **Claude Code** | hooks: `SessionStart`, `UserPromptSubmit`, `Stop`, `PreCompact`, `SessionEnd` | injected on session start and prompt submit |
+
+Because Claude Code fires real events, memory there survives context-limit compaction and hard session kills — not just a clean exit.
 
 → [ONBOARDING.md](ONBOARDING.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [INSTRUCTIONS.md](INSTRUCTIONS.md) · [MIGRATION.md](MIGRATION.md)
 
 ## Installation
 
-When listed on Cursor Marketplace:
+Both environments read the same hub, so install order does not matter — whichever comes second picks up the existing memory through its own anchor.
+
+### Claude Code
 
 ```bash
-/add-plugin agent-memory
+/plugin marketplace add raphael-batte/unified-agent-memory
+/plugin install agent-memory
 ```
 
-From a clone (development or pre-marketplace):
+A local clone works too: `/plugin marketplace add /path/to/repo`. Hooks come with the plugin — your `~/.claude/settings.json` is left alone.
+
+### Cursor
 
 ```bash
-git clone https://github.com/raphael-batte/cursor-agent-memory.git
-cd cursor-agent-memory
+git clone https://github.com/raphael-batte/unified-agent-memory.git
+cd unified-agent-memory
 bash scripts/install-local.sh
+bash scripts/install-periodic-sync.sh   # every 30m when Cursor is open; no hooks
 ```
 
 Then **reload the Cursor window**. `install-local.sh` also links **`~/.cursor/rules/agent-memory-routing.mdc`** (`alwaysApply`) so every chat reads rolling **Open threads** before answering. First open of a project creates the hub and anchor. In chat: **`@agent-memory`** → **set up agent memory**.
@@ -40,7 +53,9 @@ Manual refresh anytime: **`@agent-memory`** → **sync with agent memory**.
 
 ## How it works
 
-On session boundaries (`preCompact`, `sessionEnd`), hooks run incremental distill: scan new or changed Cursor transcripts, redact secrets, update the manifest, and write project summaries.
+Incremental distill scans new or changed transcripts from every installed environment, redacts secrets, updates the manifest, and writes project summaries. It runs on Claude Code's session events and on Cursor's 2-hourly job.
+
+Both writers take the same `mkdir` lock in the hub and write files atomically. If a hook finds the hub busy it does not stall your session: it records staging and lets the next trigger do the durable write.
 
 **Forward pointer = `## Open threads`** — one bullet per active direction (`**[label]** text · _upd DATE_`), rolling 30-day window, **cross-hub** (a thread in `alpha-hub.md` surfaces from any workspace). Resolve via:
 
@@ -56,17 +71,22 @@ On first install, `sessionStart` creates hub template files and an anchor config
 
 The skill routes the agent to the right memory layer per task (global context, feedback, or project chat distill). If a thread is vague — drill `[title](uuid)` in **## Recent**.
 
-> **`## Next step` is deprecated** (v0.24+). Existing bodies are passthrough-only; do not write there.
+> **`## Next step` was removed** (v0.29+). The forward pointer is `## Open threads`. Old files keep whatever text they still hold — nothing rewrites it.
 
 ## Where data lives
 
 | Entity | Path | On plugin update |
 |--------|------|------------------|
-| **Bundle** | `~/.cursor/plugins/local/agent-memory/` | replaced |
-| **Anchor** | `~/.cursor/agent-memory/config.json` | survives |
-| **Hub** | from anchor (default `~/.cursor/agent-memory/`) | survives |
+| **Bundle** (Cursor) | `~/.cursor/plugins/local/agent-memory/` | replaced |
+| **Bundle** (Claude) | `~/.claude/plugins/…/agent-memory/` | replaced |
+| **Anchor** (Cursor) | `~/.cursor/agent-memory/config.json` | survives |
+| **Anchor** (Claude) | `~/.claude/agent-memory/config.json` | survives |
+| **Hub** — shared | from anchor (default `~/.agent-memory/`) | survives |
 
-Resolve order for `MEMORY_HOME`: CLI `--memory-home` → env → anchor → default.
+Anchors are tiny pointer files; all data lives in the hub. Resolve order for
+`MEMORY_HOME`: CLI `--memory-home` → env → this environment's anchor → any other
+environment's anchor → default. That last fallback is what lets a second
+environment inherit an existing hub rather than starting an empty one beside it.
 
 Runtime state (examples):
 
@@ -76,12 +96,17 @@ Runtime state (examples):
 
 ## Trigger cadence
 
-| Event | What happens |
-|-------|----------------|
-| `sessionStart` / `workspaceOpen` | Hub + anchor init; open-thread curation reminders if pending |
-| `preCompact` / `sessionEnd` | Incremental distill (debounced, default 30s); `[auto]` Open threads draft |
-| `afterFileEdit` | Tracks hub file edits for apply-guard |
-| Manual | `@agent-memory` → **sync with agent memory** |
+Internally every environment's events normalize onto the same names.
+
+| Canonical event | Claude Code | Cursor | What happens |
+|---|---|---|---|
+| `sessionStart` | `SessionStart` | workspace open (via cron) | Hub + anchor init; catch-up distill; Open threads injected |
+| `promptSubmit` | `UserPromptSubmit` | — | Open threads injected, debounced 30 min per session |
+| `liveDistill` | `Stop` | — | Per-turn distill to staging; never touches the project file |
+| `preCompact` | `PreCompact` (`auto` = context limit) | — | Full distill before context is lost |
+| `sessionEnd` | `SessionEnd` | — | Distill + `[auto]` Open threads draft |
+| — | — | every 30m | `sync-if-cursor-open.sh` distills pending chats |
+| Manual | — | `@agent-memory` → **sync with agent memory** | |
 
 Distill runs only when transcripts are new or changed (manifest + file mtime). First bulk sync scope is chosen during setup (e.g. last 90 days).
 
@@ -91,6 +116,9 @@ Distill runs only when transcripts are new or changed (manifest + file mtime). F
 |----------|---------|
 | `MEMORY_HOME` | Override hub directory |
 | `AGENT_MEMORY_FRAMEWORK` | Override plugin bundle path (advanced) |
+| `AGENT_MEMORY_ENV` | Force the environment (`cursor` / `claude`) |
+| `AGENT_MEMORY_CURSOR_PROJECTS` | Override Cursor transcript root |
+| `AGENT_MEMORY_CLAUDE_PROJECTS` | Override Claude transcript root |
 | `AGENT_MEMORY_BOUNDARY_LOG` | Boundary hook log path |
 | `AGENT_MEMORY_SESSION_START_LOG` | Session-start hook log path |
 | `AGENT_MEMORY_SESSION_LOG` | Session-end hook log path |
@@ -133,7 +161,7 @@ flowchart TB
     RD[distill redact]
     VF[verify-memory + gitleaks]
   end
-  TR[Cursor transcripts]
+  TR[Transcripts — Cursor + Claude]
   AG[Agent session]
 
   TR --> RD --> CH
@@ -148,7 +176,7 @@ flowchart TB
 | Area | Contents |
 |------|----------|
 | Skills | `skills/agent-memory/`, `skills/semantic-merge/` |
-| Hooks | `hooks/hooks.json` — sessionStart, sessionEnd, preCompact, afterFileEdit |
+| Hooks | `hooks/cursor/hooks.json` — sessionStart, sessionEnd, preCompact, afterFileEdit |
 | Scripts | distill, sync, search, verify, doctor, first-run, routing-hint, pointer |
 | Templates | hub scaffolds (materialized into `$MEMORY_HOME`) |
 
@@ -179,4 +207,4 @@ If you used symlink skills or global `~/.cursor/hooks.json` entries before the p
 
 Created by [raphael-batte](https://github.com/raphael-batte) · [raphbatte.com](https://raphbatte.com)
 
-**Version:** 0.27.0 — see [VERSIONING.md](VERSIONING.md)
+**Version:** 0.29.2 — see [VERSIONING.md](VERSIONING.md)

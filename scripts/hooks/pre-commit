@@ -15,6 +15,12 @@ cd "$ROOT"
 STAGED="$(git diff --cached --name-only)"
 [[ -n "$STAGED" ]] || exit 0
 
+# Catch personal data at the earliest point it can be caught. pre-push is the
+# gate that matters, but a clean history is easier than a clean push.
+if [[ -f "$ROOT/scripts/check-local-leaks.py" ]]; then
+  python3 "$ROOT/scripts/check-local-leaks.py" --repo "$ROOT" --staged || exit 1
+fi
+
 is_doc_only() {
   case "$1" in
     README.md|README.*) return 0 ;;

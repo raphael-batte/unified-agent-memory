@@ -12,7 +12,7 @@ def session_read_layers(
 ) -> list[str]:
     """
     Ordered layer names for session start.
-    Values: distill (includes ## Next step), global-context, feedback.
+    Values: distill (includes ## Open threads), global-context, feedback.
     """
     layers: list[str] = ["distill"]
     if not workspace_slug:

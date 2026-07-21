@@ -15,7 +15,6 @@ from typing import Any
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
-from lib.defaults import POINTER_LOW_CONFIDENCE  # noqa: E402
 from lib.distill_metrics import read_metrics  # noqa: E402
 from lib.health_baseline import (  # noqa: E402
     check_degradation,
@@ -54,14 +53,6 @@ def analyze_metrics(
     distilled = [r for r in recent if r.get("status") == "distilled"]
     errors = [r for r in recent if r.get("status") == "error"]
 
-    pointer_extracted = sum(
-        1 for r in distilled if r.get("pointer_kind") == "extracted"
-    )
-    pointer_total = sum(1 for r in distilled if r.get("pointer_kind"))
-    pointer_rate = (
-        pointer_extracted / pointer_total if pointer_total else None
-    )
-
     durations = [int(r["duration_ms"]) for r in distilled if r.get("duration_ms")]
     durations.sort()
     avg_ms = int(sum(durations) / len(durations)) if durations else None
@@ -69,13 +60,6 @@ def analyze_metrics(
 
     truncated = sum(1 for r in distilled if r.get("truncated"))
     secrets = sum(int(r.get("secrets_redacted") or 0) for r in distilled)
-
-    low_conf = sum(
-        1
-        for r in distilled
-        if r.get("pointer_confidence") is not None
-        and float(r["pointer_confidence"]) < POINTER_LOW_CONFIDENCE
-    )
 
     incremental = sum(1 for r in distilled if r.get("incremental"))
     map_reduce = sum(1 for r in distilled if (r.get("window_count") or 0) > 0)
@@ -160,8 +144,6 @@ def analyze_metrics(
         "debounced": reason_counts.get("debounced", 0),
         "no_transcript": reason_counts.get("no_transcript", 0),
         "already_distilled": reason_counts.get("already_distilled", 0),
-        "pointer_extracted_rate": pointer_rate,
-        "pointer_low_confidence": low_conf,
         "truncation_rate": truncation_rate,
         "secrets_redacted_total": secrets,
         "avg_distill_ms": avg_ms,
@@ -188,11 +170,9 @@ def analyze_metrics(
         "boundary_events": boundary_events,
         "metrics_gap": metrics_gap,
         "metrics_gap_reason": metrics_gap_reason,
-        "healthy": (
-            len(errors) == 0
-            and not metrics_gap
-            and (pointer_rate is None or pointer_rate >= 0.4)
-        ),
+        # `## Next step` extraction rate used to gate this. It has been pinned at
+        # 0% since that section was retired, so it only ever reported ill health.
+        "healthy": len(errors) == 0 and not metrics_gap,
     }
 
 
@@ -206,15 +186,11 @@ def enrich_with_baseline(
     if update_baseline:
         baseline = record_snapshot(
             memory_home,
-            pointer_hit_rate=data.get("pointer_extracted_rate"),
             distilled_count=int(data.get("distilled") or 0),
             error_count=int(data.get("errors") or 0),
         )
     degradation = check_degradation(data, baseline)
-    data["baseline"] = {
-        "median_hit_rate": baseline.get("pointer_hit_median"),
-        "samples": len(baseline.get("pointer_hit_rates") or []),
-    }
+    data["baseline"] = {"samples": len(baseline.get("samples") or [])}
     data["degradation"] = degradation
     if degradation.get("degraded"):
         data["healthy"] = False
@@ -238,9 +214,6 @@ def print_report(data: dict) -> None:
     print(f"  Distilled:      {data['distilled']}")
     print(f"  Skipped:        {data['skipped']} (debounced {data['debounced']}, up-to-date {data['already_distilled']})")
     print(f"  Errors:         {data['errors']}")
-    rate = data.get("pointer_extracted_rate")
-    if rate is not None:
-        print(f"  Pointer hit:    {rate * 100:.0f}% extracted (distill)")
     session_rate = data.get("pointer_session_hit_rate")
     if session_rate is not None:
         print(
@@ -255,12 +228,6 @@ def print_report(data: dict) -> None:
             f"({data.get('pointer_feedback_followed', 0)} / "
             f"{data.get('pointer_feedback_followed', 0) + data.get('pointer_feedback_partial', 0) + data.get('pointer_feedback_ignored', 0) + data.get('pointer_feedback_resumed_blind', 0)})"
         )
-    bl = data.get("baseline") or {}
-    if bl.get("median_hit_rate") is not None:
-        print(
-            f"  Baseline:       median {float(bl['median_hit_rate']) * 100:.0f}% "
-            f"({bl.get('samples', 0)} samples)"
-        )
     deg = data.get("degradation") or {}
     if deg.get("degraded"):
         print(f"  Degradation:    {deg.get('degradation_reason')}")
@@ -268,7 +235,6 @@ def print_report(data: dict) -> None:
         print(f"  Metrics gap:    {data.get('metrics_gap_reason')}")
     if data.get("crashes"):
         print(f"  Crashes:        {data['crashes']}")
-    print(f"  Low-confidence: {data['pointer_low_confidence']}")
     tr = data.get("truncation_rate")
     if tr is not None:
         print(f"  Truncation:     {tr * 100:.0f}%")
@@ -280,11 +246,12 @@ def print_report(data: dict) -> None:
     if data.get("token_budget_exceeded"):
         print(f"  Budget exceed:  {data['token_budget_exceeded']}")
     hub = data.get("hub_disk") or {}
-    disk_rate = hub.get("pointer_extracted_rate")
-    if disk_rate is not None:
+    coverage = hub.get("threads_coverage_rate")
+    if coverage is not None:
         print(
-            f"  Disk pointers:  {disk_rate * 100:.0f}% real "
-            f"({hub.get('pointer_placeholder', 0)} placeholder)"
+            f"  Open threads:   {coverage * 100:.0f}% covered "
+            f"({hub.get('projects_fresh', 0)}/{hub.get('projects_scanned', 0)} fresh, "
+            f"{hub.get('threads_total', 0)} threads)"
         )
     if hub.get("queue_size"):
         print(

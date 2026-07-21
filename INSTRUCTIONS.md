@@ -266,7 +266,7 @@ Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/<uuid>/<uuid>.j
 - **Preserve original chat language(s)** — do not translate during extract or merge
 - **Flow:** `distill-extract.py` → `distill-merge.py` (manifest + staging) → agent curates `## Decisions` via semantic-merge → hooks/sync `--apply` for bookkeeping
 - **Strategy:** `--strategy auto` → **importance** (per-segment selection for long chats); legacy: `tail`, `spread`, `all`
-- **`--apply`:** Recent ≤3, mechanical `## Summary` if empty, novel `[extracted]` from `decision_candidates` (cap 30 per file; FIFO evict to `archive/<slug>-decisions.md`). Optional **`[auto]` Open threads** draft from tail segment (v0.26+). **Never** raw staging bullets into curated Decisions. **`## Next step` is deprecated** — do not write there.
+- **`--apply`:** Recent ≤3, mechanical `## Summary` if empty, novel `[extracted]` from `decision_candidates` (cap 30 per file; FIFO evict to `archive/<slug>-decisions.md`). Optional **`[auto]` Open threads** draft from tail segment (v0.26+). **Never** raw staging bullets into curated Decisions. **`## Next step` was removed** (v0.29+).
 - **`[extracted]` vs curated:** hooks append precision-filtered `[extracted]`; agent writes `[curated]` / keeps `[bootstrap]` — curated bullets are not evicted by cap
 
 ```bash
@@ -277,7 +277,7 @@ python3 $FRAMEWORK_ROOT/scripts/distill-merge.py <uuid> --apply --project exampl
 python3 $FRAMEWORK_ROOT/scripts/verify-memory.py --memory-home "$MEMORY_HOME" --strict-secrets --gitleaks
 ```
 
-**Hooks:** plugin `hooks/hooks.json` — `sessionStart`/`workspaceOpen` (first-run + catch-up), `sessionEnd`/`preCompact` distill, `afterFileEdit` log. Do not merge into global `~/.cursor/hooks.json`.  
+**Hooks:** plugin `hooks/cursor/hooks.json` — `sessionStart`/`workspaceOpen` (first-run + catch-up), `sessionEnd`/`preCompact` distill, `afterFileEdit` log. Do not merge into global `~/.cursor/hooks.json`.  
 **Chat links:** Recent lines use `[title](uuid)` when transcript exists — follow link if distill lacks detail.  
 **Cursor rule:** optional `templates/cursor-rule/agent-memory-session-end.mdc`.
 
@@ -299,7 +299,7 @@ python3 $FRAMEWORK_ROOT/scripts/verify-memory.py --memory-home "$MEMORY_HOME" --
 ## Summary | ## Decisions | ## Preferences | ## Open threads | ## Recent
 ```
 
-(`## Next step` may exist as deprecated passthrough — ignore.)
+(`## Next step` may survive in an old hub file — ignore it.)
 
 **Forward pointer:** **`## Open threads`** — one bullet per direction (`**[label]** text · _upd DATE_`), cap 7. Curated via `memory-pointer.py add-thread`. Distill may write **`[auto]`** drafts from tail topic segment; auto never overwrites curated. Rolling 30d cross-hub view: `memory-routing-hint.py --json .`
 
@@ -332,8 +332,11 @@ Deep dives (read on demand): `skills/semantic-merge/SKILL.md`, `templates/chats/
 
 ### Path resolution (all scripts)
 
-`MEMORY_HOME`: CLI `--memory-home` → `$MEMORY_HOME` env → anchor `~/.cursor/agent-memory/config.json` → default `~/.cursor/agent-memory/`.  
-`PLUGIN_ROOT`: detect from script path → `.cursor-plugin/plugin.json`.  
+`MEMORY_HOME`: CLI `--memory-home` → `$MEMORY_HOME` env → this environment's anchor
+(`~/.cursor/agent-memory/config.json` or `~/.claude/agent-memory/config.json`) → any other
+environment's anchor → default `~/.agent-memory/`. The cross-environment fallback is what lets
+a second environment join an existing hub instead of starting an empty one beside it.  
+`PLUGIN_ROOT`: detect from script path → `.cursor-plugin/plugin.json` or `.claude-plugin/plugin.json`.  
 Scripts write user data **only** to `$MEMORY_HOME`; anchor at fixed path outside bundle.
 
 ---

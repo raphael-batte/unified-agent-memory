@@ -1,4 +1,4 @@
-"""Single-pass Cursor/generic jsonl transcript parser."""
+"""Single-pass Cursor/Claude/generic jsonl transcript parser."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from lib import transcript_claude as claude
 from lib.secrets_guard import sanitize_message
 from lib.system_blocks import strip_system_blocks
 from lib.transcript_cursor import (
@@ -328,9 +329,33 @@ def _parse_generic_objects(
     )
 
 
+def _parse_claude_objects(
+    objects: list[dict[str, Any]],
+    *,
+    lines_read: int,
+    source_path: Path,
+) -> ParsedTranscript:
+    """Claude rows normalize onto the Cursor row shape, so reuse that parser wholesale."""
+    rows = claude.normalize_rows(objects)
+    if not rows:
+        raise TranscriptSchemaError(f"no Claude conversation rows: {source_path}")
+    parsed = _parse_cursor_objects(rows, lines_read=lines_read, source_path=source_path)
+    # Report rows actually read from disk, not the normalized subset.
+    parsed.stats.json_lines = len(objects)
+    parsed.adapter = "claude"
+    return parsed
+
+
 def _parse_uncached(jsonl: Path) -> ParsedTranscript:
     resolved = jsonl.expanduser().resolve()
     objects, lines_read = _read_objects(resolved)
+    if claude.looks_like_claude(objects):
+        try:
+            return _parse_claude_objects(
+                objects, lines_read=lines_read, source_path=resolved
+            )
+        except TranscriptSchemaError:
+            pass
     try:
         return _parse_cursor_objects(objects, lines_read=lines_read, source_path=resolved)
     except TranscriptSchemaError:

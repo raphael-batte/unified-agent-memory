@@ -17,11 +17,19 @@ def _normalize(text: str) -> str:
 
 
 def _text_from_obj(obj: dict) -> str | None:
-    role = (obj.get("role") or obj.get("type") or "").lower()
+    nested = obj.get("message")
+    if isinstance(nested, dict):
+        # Exports that wrap the payload (Claude Code, some API dumps) keep role and
+        # content one level down; the outer row only carries `type`.
+        role = (nested.get("role") or obj.get("role") or obj.get("type") or "").lower()
+        content_owner: dict = nested
+    else:
+        role = (obj.get("role") or obj.get("type") or "").lower()
+        content_owner = obj
     if role not in ("user", "human"):
         return None
 
-    content = obj.get("content")
+    content = content_owner.get("content")
     if isinstance(content, str):
         return _normalize(content)
     if isinstance(content, list):
@@ -37,7 +45,7 @@ def _text_from_obj(obj: dict) -> str | None:
             return _normalize(" ".join(parts))
 
     for key in ("message", "text", "body", "prompt"):
-        val = obj.get(key)
+        val = content_owner.get(key)
         if isinstance(val, str) and val.strip():
             return _normalize(val)
 

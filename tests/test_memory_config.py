@@ -77,24 +77,46 @@ class TestMemoryConfig(unittest.TestCase):
                     hub.resolve(),
                 )
 
-    def test_default_memory_home_without_anchor(self) -> None:
+    def _resolve_with_fake_home(self, anchor_home: Path, tmp: str) -> Path:
+        with mock.patch.object(mc, "_load_legacy_hook_env", return_value={}):
+            with mock.patch.object(
+                mc, "LEGACY_GLOBAL_CONFIG", Path(tmp) / "nope-legacy.json"
+            ):
+                with mock.patch.dict(os.environ, _anchor_env(anchor_home), clear=True):
+                    os.environ.pop("MEMORY_HOME", None)
+                    return mc.resolve_memory_home(None, script_file=__file__)
+
+    def test_default_memory_home_is_environment_neutral(self) -> None:
+        """A fresh install lands on the shared hub, not inside one environment's dir."""
         with tempfile.TemporaryDirectory() as tmp:
             anchor_home = Path(tmp) / "fake-home"
-            expected = anchor_home / ".cursor" / "agent-memory"
-            with mock.patch.object(mc, "_load_legacy_hook_env", return_value={}):
-                with mock.patch.object(
-                    mc, "LEGACY_GLOBAL_CONFIG", Path(tmp) / "nope-legacy.json"
-                ):
-                    with mock.patch.dict(
-                        os.environ,
-                        _anchor_env(anchor_home),
-                        clear=True,
-                    ):
-                        os.environ.pop("MEMORY_HOME", None)
-                        self.assertEqual(
-                            mc.resolve_memory_home(None, script_file=__file__),
-                            expected.resolve(),
-                        )
+            expected = anchor_home / ".agent-memory"
+            self.assertEqual(self._resolve_with_fake_home(anchor_home, tmp), expected.resolve())
+
+    def test_legacy_hub_inside_anchor_dir_still_wins(self) -> None:
+        """Older installs kept hub data in the anchor dir — do not orphan it."""
+        with tempfile.TemporaryDirectory() as tmp:
+            anchor_home = Path(tmp) / "fake-home"
+            legacy = anchor_home / ".cursor" / "agent-memory"
+            (legacy / "chats" / "projects").mkdir(parents=True)
+            self.assertEqual(self._resolve_with_fake_home(anchor_home, tmp), legacy.resolve())
+
+    def test_other_environments_anchor_is_inherited(self) -> None:
+        """Whichever environment is installed second joins the existing hub."""
+        with tempfile.TemporaryDirectory() as tmp:
+            anchor_home = Path(tmp) / "fake-home"
+            shared = Path(tmp) / "shared-hub"
+            shared.mkdir()
+            claude_anchor = anchor_home / ".claude" / "agent-memory"
+            claude_anchor.mkdir(parents=True)
+            (claude_anchor / "config.json").write_text(
+                json.dumps({"memory_home": str(shared)}), encoding="utf-8"
+            )
+            # Resolving as Cursor, whose own anchor does not exist yet.
+            with mock.patch.dict(os.environ, {"AGENT_MEMORY_ENV": "cursor"}, clear=False):
+                self.assertEqual(
+                    self._resolve_with_fake_home(anchor_home, tmp), shared.resolve()
+                )
 
     def test_detect_plugin_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

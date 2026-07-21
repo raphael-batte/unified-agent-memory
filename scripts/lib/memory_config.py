@@ -8,16 +8,44 @@ import warnings
 from pathlib import Path
 
 PLUGIN_MANIFEST = ".cursor-plugin/plugin.json"
-# Legacy read-only fallbacks
+# Legacy read-only fallbacks. The directory keeps the pre-rename name on purpose:
+# it is a path on existing installs, not a reference to the repo.
 LEGACY_GLOBAL_CONFIG = Path.home() / ".config" / "cursor-agent-memory" / "config.json"
 LEGACY_HOOK_ENV = Path.home() / ".cursor" / "hooks" / "agent-memory.env"
 
 
-def anchor_dir() -> Path:
-    """Fixed anchor directory (survives bundle updates). Override via AGENT_MEMORY_ANCHOR_HOME."""
+#: Anchor directory per agent environment. Each environment keeps its own tiny
+#: config.json; they all point at the same shared hub.
+ANCHOR_RELATIVE_DIRS: tuple[tuple[str, str], ...] = (
+    ("cursor", ".cursor/agent-memory"),
+    ("claude", ".claude/agent-memory"),
+)
+
+
+def _anchor_root() -> Path:
     base = os.environ.get("AGENT_MEMORY_ANCHOR_HOME", "").strip()
-    root = Path(base).expanduser() if base else Path.home()
-    return root / ".cursor" / "agent-memory"
+    return Path(base).expanduser() if base else Path.home()
+
+
+def anchor_dirs() -> list[Path]:
+    """Every environment's anchor directory, in resolution order."""
+    root = _anchor_root()
+    return [root / rel for _name, rel in ANCHOR_RELATIVE_DIRS]
+
+
+def anchor_dir() -> Path:
+    """This environment's anchor directory (survives bundle updates).
+
+    Override the root via AGENT_MEMORY_ANCHOR_HOME.
+    """
+    from lib import envs
+
+    root = _anchor_root()
+    name = envs.detect_env().name
+    for env_name, rel in ANCHOR_RELATIVE_DIRS:
+        if env_name == name:
+            return root / rel
+    return root / ANCHOR_RELATIVE_DIRS[0][1]
 
 
 def anchor_file() -> Path:
@@ -25,7 +53,20 @@ def anchor_file() -> Path:
 
 
 def default_memory_home() -> Path:
-    return anchor_dir()
+    """Neutral shared hub — it belongs to no single environment."""
+    return _anchor_root() / ".agent-memory"
+
+
+def _legacy_hub_at_anchor() -> Path | None:
+    """Older installs kept hub data inside the anchor directory itself.
+
+    Detect that layout so an upgrade keeps reading the existing memory instead of
+    silently starting an empty hub at the new default path.
+    """
+    for directory in anchor_dirs():
+        if (directory / "chats").is_dir() or (directory / "context").is_dir():
+            return directory
+    return None
 
 
 def anchor_points_to_initialized_hub() -> Path | None:
@@ -78,10 +119,19 @@ def load_anchor_config() -> dict:
 
 
 def memory_home_from_anchor() -> Path | None:
+    """Hub path from this environment's anchor, else any other environment's.
+
+    The hub is shared, so an environment installed second inherits the existing
+    hub instead of starting an empty one beside it.
+    """
     raw = str(load_anchor_config().get("memory_home", "")).strip()
-    if not raw:
-        return None
-    return Path(raw).expanduser()
+    if raw:
+        return Path(raw).expanduser()
+    for directory in anchor_dirs():
+        other = str(_read_json(directory / "config.json").get("memory_home", "")).strip()
+        if other:
+            return Path(other).expanduser()
+    return None
 
 
 def persist_anchor(memory_home: Path) -> None:
@@ -96,6 +146,26 @@ def persist_anchor(memory_home: Path) -> None:
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+
+def persist_all_anchors(memory_home: Path) -> list[Path]:
+    """Point every environment's anchor at one hub.
+
+    Used when adopting the shared hub: whichever environment the user opens next
+    must find the same memory, not create a second one beside it.
+    """
+    resolved = str(memory_home.expanduser().resolve())
+    written: list[Path] = []
+    for directory in anchor_dirs():
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / "config.json"
+        data = _read_json(path)
+        data["memory_home"] = resolved
+        path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        written.append(path)
+    return written
 
 
 def detect_plugin_root(start: str | Path | None = None) -> Path | None:
@@ -184,6 +254,9 @@ def resolve_memory_home(
     anchored = memory_home_from_anchor()
     if anchored is not None:
         return anchored.expanduser().resolve()
+    legacy_at_anchor = _legacy_hub_at_anchor()
+    if legacy_at_anchor is not None:
+        return legacy_at_anchor.resolve()
     legacy_hook = _load_legacy_hook_env()
     hook_hub = legacy_hook.get("MEMORY_HOME", "").strip()
     if hook_hub:
