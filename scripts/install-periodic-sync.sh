@@ -7,6 +7,9 @@ SYNC_SCRIPT="$SCRIPT_DIR/sync-if-cursor-open.sh"
 LABEL="com.raphael-batte.agent-memory-sync"
 PLIST="$HOME/Library/LaunchAgents/${LABEL}.plist"
 INTERVAL="${AGENT_MEMORY_SYNC_INTERVAL:-7200}"
+# Logs live in the hub, which is shared across agent environments and may have
+# been moved off the default path — resolve it instead of hardcoding.
+LOG_DIR="$(python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); from lib.memory_config import resolve_memory_home; print(resolve_memory_home(None))")/logs"
 
 usage() {
   echo "Usage: $0 [--uninstall] [--interval SECONDS]"
@@ -40,7 +43,7 @@ if [[ "$UNINSTALL" -eq 1 ]]; then
   exit 0
 fi
 
-mkdir -p "$HOME/Library/LaunchAgents"
+mkdir -p "$HOME/Library/LaunchAgents" "$LOG_DIR"
 cat >"$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -58,9 +61,9 @@ cat >"$PLIST" <<EOF
   <key>RunAtLoad</key>
   <false/>
   <key>StandardOutPath</key>
-  <string>${HOME}/.cursor/agent-memory/logs/cron-sync.stdout.log</string>
+  <string>${LOG_DIR}/cron-sync.stdout.log</string>
   <key>StandardErrorPath</key>
-  <string>${HOME}/.cursor/agent-memory/logs/cron-sync.stderr.log</string>
+  <string>${LOG_DIR}/cron-sync.stderr.log</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
@@ -90,7 +93,7 @@ else
   echo "  Interval:  ${INTERVAL}s (every ${hours}h ${mins}m)"
 fi
 echo "  Plist:     $PLIST"
-echo "  Log:       ~/.cursor/agent-memory/logs/cron-sync.log"
+echo "  Log:       $LOG_DIR/cron-sync.log"
 echo
 echo "Test now:"
 echo "  bash $SYNC_SCRIPT --dry-run --force"

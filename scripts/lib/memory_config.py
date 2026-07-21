@@ -13,11 +13,38 @@ LEGACY_GLOBAL_CONFIG = Path.home() / ".config" / "cursor-agent-memory" / "config
 LEGACY_HOOK_ENV = Path.home() / ".cursor" / "hooks" / "agent-memory.env"
 
 
-def anchor_dir() -> Path:
-    """Fixed anchor directory (survives bundle updates). Override via AGENT_MEMORY_ANCHOR_HOME."""
+#: Anchor directory per agent environment. Each environment keeps its own tiny
+#: config.json; they all point at the same shared hub.
+ANCHOR_RELATIVE_DIRS: tuple[tuple[str, str], ...] = (
+    ("cursor", ".cursor/agent-memory"),
+    ("claude", ".claude/agent-memory"),
+)
+
+
+def _anchor_root() -> Path:
     base = os.environ.get("AGENT_MEMORY_ANCHOR_HOME", "").strip()
-    root = Path(base).expanduser() if base else Path.home()
-    return root / ".cursor" / "agent-memory"
+    return Path(base).expanduser() if base else Path.home()
+
+
+def anchor_dirs() -> list[Path]:
+    """Every environment's anchor directory, in resolution order."""
+    root = _anchor_root()
+    return [root / rel for _name, rel in ANCHOR_RELATIVE_DIRS]
+
+
+def anchor_dir() -> Path:
+    """This environment's anchor directory (survives bundle updates).
+
+    Override the root via AGENT_MEMORY_ANCHOR_HOME.
+    """
+    from lib import envs
+
+    root = _anchor_root()
+    name = envs.detect_env().name
+    for env_name, rel in ANCHOR_RELATIVE_DIRS:
+        if env_name == name:
+            return root / rel
+    return root / ANCHOR_RELATIVE_DIRS[0][1]
 
 
 def anchor_file() -> Path:
@@ -78,10 +105,19 @@ def load_anchor_config() -> dict:
 
 
 def memory_home_from_anchor() -> Path | None:
+    """Hub path from this environment's anchor, else any other environment's.
+
+    The hub is shared, so an environment installed second inherits the existing
+    hub instead of starting an empty one beside it.
+    """
     raw = str(load_anchor_config().get("memory_home", "")).strip()
-    if not raw:
-        return None
-    return Path(raw).expanduser()
+    if raw:
+        return Path(raw).expanduser()
+    for directory in anchor_dirs():
+        other = str(_read_json(directory / "config.json").get("memory_home", "")).strip()
+        if other:
+            return Path(other).expanduser()
+    return None
 
 
 def persist_anchor(memory_home: Path) -> None:
