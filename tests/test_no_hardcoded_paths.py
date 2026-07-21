@@ -17,6 +17,7 @@ FORBIDDEN = [
     re.compile(r"~/Work/"),
     re.compile(r"~/agent-memory"),
     re.compile(r"\$HOME/agent-memory"),
+    # Pre-rename legacy config dir — read-only fallback, never a new write target.
     re.compile(r"~/.config/cursor-agent-memory"),
     re.compile(r"/Users/[^/\s]+/Work/"),
 ]

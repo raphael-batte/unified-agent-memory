@@ -32,6 +32,14 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
   runs the same check on the index; findings print redacted, since they land in public CI logs.
 - `.leakcheck-allow` for generic technology names cleared by the maintainer.
 
+### Changed
+
+- **Repo renamed to `unified-agent-memory`.** Install commands, clone URLs, issue links and both
+  plugin manifests follow. `~/.config/cursor-agent-memory/` keeps the old spelling on purpose —
+  it is a path on existing installs, not a reference to the repo, and renaming it would orphan
+  those configs. Former repo names are in `.leakcheck-allow`, since the leak checker derives the
+  product's own vocabulary from the current name and would otherwise read them as personal data.
+
 ## [0.29.1] - 2026-07-21
 
 ### Changed

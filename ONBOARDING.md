@@ -9,7 +9,7 @@ One skill, one sync command. Framework repo is **English-only**; your `$MEMORY_H
 
 ## Quick start
 
-From [the repo](https://github.com/raphael-batte/cursor-agent-memory) (clone anywhere), then:
+From [the repo](https://github.com/raphael-batte/unified-agent-memory) (clone anywhere), then:
 
 ```bash
 bash scripts/install-local.sh
@@ -29,7 +29,7 @@ read and write the same memory. First `sessionStart` may create template stubs; 
 ### Claude Code
 
 ```bash
-/plugin marketplace add raphael-batte/cursor-agent-memory   # or a local clone path
+/plugin marketplace add raphael-batte/unified-agent-memory   # or a local clone path
 /plugin install agent-memory
 ```
 

@@ -1,4 +1,4 @@
-title = "cursor-agent-memory gitleaks config"
+title = "unified-agent-memory gitleaks config"
 
 [extend]
 useDefault = true

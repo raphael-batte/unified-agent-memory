@@ -16,7 +16,7 @@ Setup: [ONBOARDING.md](ONBOARDING.md)
 ## 1. Fresh install
 
 ```bash
-# from your clone of github.com/raphael-batte/cursor-agent-memory
+# from your clone of github.com/raphael-batte/unified-agent-memory
 bash scripts/install-local.sh
 # Reload Cursor — first sessionStart bootstraps hub; or:
 bash scripts/init-memory.sh

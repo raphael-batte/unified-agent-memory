@@ -52,6 +52,7 @@ for key in ("FRAMEWORK_ROOT", "AGENT_MEMORY_FRAMEWORK"):
         print(hit)
         raise SystemExit(0)
 
+# Pre-rename path — still on existing installs, so it must not follow the repo name.
 global_cfg = Path.home() / ".config" / "cursor-agent-memory" / "config.json"
 if global_cfg.is_file():
     data = json.loads(global_cfg.read_text(encoding="utf-8"))

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Weekly cron helper — strict secrets + optional gitleaks + doctor summary.
 # Example crontab (Sunday 09:00):
-#   0 9 * * 0 cd /path/to/cursor-agent-memory && bash scripts/weekly-verify.sh
+#   0 9 * * 0 cd /path/to/unified-agent-memory && bash scripts/weekly-verify.sh
 set -euo pipefail
 
 usage() {

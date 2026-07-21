@@ -26,7 +26,7 @@ Both environments read the same hub, so install order does not matter — whiche
 ### Claude Code
 
 ```bash
-/plugin marketplace add raphael-batte/cursor-agent-memory
+/plugin marketplace add raphael-batte/unified-agent-memory
 /plugin install agent-memory
 ```
 
@@ -35,8 +35,8 @@ A local clone works too: `/plugin marketplace add /path/to/repo`. Hooks come wit
 ### Cursor
 
 ```bash
-git clone https://github.com/raphael-batte/cursor-agent-memory.git
-cd cursor-agent-memory
+git clone https://github.com/raphael-batte/unified-agent-memory.git
+cd unified-agent-memory
 bash scripts/install-local.sh
 bash scripts/install-periodic-sync.sh   # every 30m when Cursor is open; no hooks
 ```

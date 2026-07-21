@@ -8,7 +8,8 @@ import warnings
 from pathlib import Path
 
 PLUGIN_MANIFEST = ".cursor-plugin/plugin.json"
-# Legacy read-only fallbacks
+# Legacy read-only fallbacks. The directory keeps the pre-rename name on purpose:
+# it is a path on existing installs, not a reference to the repo.
 LEGACY_GLOBAL_CONFIG = Path.home() / ".config" / "cursor-agent-memory" / "config.json"
 LEGACY_HOOK_ENV = Path.home() / ".cursor" / "hooks" / "agent-memory.env"
 

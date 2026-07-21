@@ -1,10 +1,10 @@
 # Contributing
 
-Thanks for helping improve **cursor-agent-memory**. All changes land via **pull request** into `main`.
+Thanks for helping improve **unified-agent-memory**. All changes land via **pull request** into `main`.
 
 ## Workflow
 
-1. **Fork** [raphael-batte/cursor-agent-memory](https://github.com/raphael-batte/cursor-agent-memory) (or branch from `main` if you are a maintainer).
+1. **Fork** [raphael-batte/unified-agent-memory](https://github.com/raphael-batte/unified-agent-memory) (or branch from `main` if you are a maintainer).
 2. **Branch:** `feat/…`, `fix/…`, or `docs/…` from current `main`.
 3. **Install hooks** (once per clone):
    ```bash
@@ -81,4 +81,4 @@ to a public remote cannot be undone — history and forks keep it.
 
 ## Questions
 
-Open a [GitHub issue](https://github.com/raphael-batte/cursor-agent-memory/issues) or discuss in the PR.
+Open a [GitHub issue](https://github.com/raphael-batte/unified-agent-memory/issues) or discuss in the PR.
