@@ -9,7 +9,7 @@ Technical reference for distill-first memory with **forward pointer** (`## Open 
 3. **One skill** — `agent-memory` routes all layers.
 4. **Event-driven** — distill on session boundaries; `apply=True` updates Recent + optional `[auto]` Open threads draft.
 
-> **`## Next step` is deprecated** (v0.24+). Existing bodies are passthrough-only.
+> **`## Next step` was removed** (v0.29+). The forward pointer is `## Open threads`.
 
 ## Hub config
 

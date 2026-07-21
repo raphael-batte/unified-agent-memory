@@ -12,8 +12,7 @@ from lib.defaults import (
     MAX_LAYER_FILE_LINES,
 )
 from lib.transcript_cursor import safe_path_component
-from lib.distill_links import enrich_extract, format_chat_markdown_link, recent_bullet
-from lib.forward_pointer import NO_POINTER_MARKER, STALE_POINTER_PREFIX
+from lib.distill_links import recent_bullet
 from lib.hub_lock import write_atomic
 from lib.message_importance import mechanical_bullets
 from lib.novelty import (
@@ -24,7 +23,6 @@ from lib.novelty import (
     normalize_decision_content,
 )
 from lib.secrets_guard import scan_file
-from lib.pointer_provenance import format_next_step_deprecated
 from lib.markdown_sections import bullets as _bullets
 from lib.markdown_sections import parse_sections as _parse_sections
 from lib.timestamps import now_iso
@@ -33,7 +31,6 @@ LAST_UPDATED = re.compile(r"^_Last updated:\s*.+$", re.M | re.I)
 DEFAULT_SECTIONS = (
     "Summary",
     "Decisions",
-    "Next step",
     "Preferences",
     "Open threads",
     "Recent",
@@ -273,62 +270,6 @@ def upsert_open_thread(
     if cap > 0 and len(kept) > cap:
         kept = kept[len(kept) - cap :]
     return kept
-
-
-def _is_meta_next_step(bullet: str) -> bool:
-    return NO_POINTER_MARKER in bullet or bullet.strip().startswith(STALE_POINTER_PREFIX)
-
-
-def _previous_real_next_step(bullets: list[str]) -> str | None:
-    for bullet in bullets:
-        if _is_meta_next_step(bullet):
-            continue
-        text = bullet.strip()
-        if text:
-            return text
-    return None
-
-
-def preserve_next_step_deprecated(sections: dict) -> None:
-    """## Next step is deprecated; distill never auto-writes (Open threads = pointer)."""
-    if _bullets(sections.get("Next step", "")):
-        return
-    sections["Next step"] = format_next_step_deprecated()
-
-
-def format_next_step_line(
-    extract: dict,
-    pointer: str | None,
-    existing_block: str,
-) -> tuple[str, str]:
-    """
-    Build ## Next step body (single bullet).
-    Returns (section_body, kind) where kind is extracted | placeholder_empty | placeholder_stale.
-    """
-    link = format_chat_markdown_link(enrich_extract(extract))
-    if link:
-        drill = (
-            f" Drill → {link} (transcript tail). "
-            "Context → ## Decisions, ## Recent below."
-        )
-    else:
-        uid = str(extract.get("uuid", "?"))[:8]
-        drill = (
-            f" Drill → chat `{uid}…` in ## Recent. "
-            "Context → ## Decisions below."
-        )
-
-    if pointer:
-        return f"- {pointer}", "extracted"
-
-    prev = _previous_real_next_step(_bullets(existing_block))
-    if prev:
-        short = prev if len(prev) <= 120 else prev[:117].rstrip() + "..."
-        return (
-            f"- {STALE_POINTER_PREFIX} _Not refreshed._ Was: «{short}».{drill}",
-            "placeholder_stale",
-        )
-    return f"- {NO_POINTER_MARKER}{drill}", "placeholder_empty"
 
 
 def decision_candidates_from_extract(
@@ -609,7 +550,6 @@ def apply_mechanical_auto_decisions(project_path: Path, extract: dict) -> int:
             f"_Last updated: {day}_\n\n"
             "## Summary\n\n\n"
             "## Decisions\n\n\n"
-            "## Next step\n\n\n"
             "## Preferences\n\n\n"
             "## Open threads\n\n\n"
             "## Recent\n\n"
@@ -650,7 +590,6 @@ def apply_extract_to_project(
             f"_Last updated: {day}_\n\n"
             "## Summary\n\n\n"
             "## Decisions\n\n\n"
-            "## Next step\n\n\n"
             "## Preferences\n\n\n"
             "## Open threads\n\n\n"
             "## Recent\n\n"
@@ -705,12 +644,6 @@ def apply_extract_to_project(
             sections["Decisions"] = _format_bullets(seeds)
             decisions_added = len(seeds)
 
-    existing_next_bullets = _bullets(sections.get("Next step", ""))
-    preserve_next_step_deprecated(sections)
-    next_kind = "deprecated_passthrough"
-    next_step_updated = False
-    next_step_placeholder = not bool(existing_next_bullets)
-
     decisions_now = _bullets(sections.get("Decisions", ""))
     compacted_decisions, decisions_compacted = compact_live_decisions(decisions_now)
     if decisions_compacted:
@@ -738,14 +671,6 @@ def apply_extract_to_project(
         "decisions_compacted": decisions_compacted,
         "decisions_extracted": int(extract.get("decisions_extracted") or 0),
         "coverage_ratio": extract.get("coverage_ratio"),
-        "next_step_updated": next_step_updated,
-        "next_step_kind": next_kind,
-        "next_step_placeholder": next_step_placeholder,
-        "pointer_confidence": 0.0,
-        "pointer_source": "deprecated",
-        "pointer_provenance": "deprecated",
-        "pointer_preserved_curated": False,
-        "pointer_candidate": None,
         "recent_lines": min(len(recent_items), max_recent),
         "lines": len(merged.splitlines()),
         "over_limit": len(merged.splitlines()) > MAX_LAYER_FILE_LINES,

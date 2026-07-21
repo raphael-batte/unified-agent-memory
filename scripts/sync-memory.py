@@ -235,7 +235,7 @@ def run_sync(
         report["message"] = (
             f"Projects in GLOBAL_CONTEXT: {report['projects']}. "
             f"Chat distills: {report['distills']} ({days} days){trunc_note}. "
-            f"Forward pointer: chats/projects/<slug>.md ## Next step. Ready to work."
+            f"Forward pointer: chats/projects/<slug>.md ## Open threads. Ready to work."
         )
     else:
         report["message"] = "Sync incomplete — check report."

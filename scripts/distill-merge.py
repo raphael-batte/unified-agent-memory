@@ -187,16 +187,6 @@ def build_staging_markdown(
     return "\n".join(lines)
 
 
-def append_pointer_candidate(staging_md: str, candidate: str | None) -> str:
-    if not candidate:
-        return staging_md
-    return (
-        staging_md.rstrip()
-        + "\n\n## Pointer candidate (not applied — curated Next step preserved)\n\n"
-        + f"- {candidate}\n"
-    )
-
-
 def run_merge(
     *,
     memory_home: Path,
@@ -341,22 +331,6 @@ def run_merge(
         )
         result["draft_result"] = draft_result
         apply_result["draft_result"] = draft_result
-        if apply_result.get("pointer_preserved_curated") and apply_result.get(
-            "pointer_candidate"
-        ):
-            staging_path.write_text(
-                append_pointer_candidate(
-                    staging_path.read_text(encoding="utf-8"),
-                    str(apply_result["pointer_candidate"]),
-                ),
-                encoding="utf-8",
-            )
-        if apply_result.get("next_step_kind") == "extracted":
-            entry["pointer_source"] = apply_result.get("pointer_provenance", "auto")
-            entry["pointer_set_at"] = entry["distilled_at"]
-            upsert_processed(manifest, entry)
-            save_manifest(manifest_path, manifest)
-
     inc = extract.get("incremental") or {}
     if inc.get("incremental_count"):
         update_rolling_after_merge(
@@ -386,7 +360,7 @@ def main() -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Recent≤3 + ## Next step; optional [bootstrap] Decisions when empty",
+        help="Recent≤3; optional [bootstrap] Decisions when empty",
     )
     parser.add_argument(
         "--force-apply",
@@ -473,7 +447,7 @@ def main() -> int:
         msg = f"manifest updated; staging: {result['staging_path']}"
         if result.get("applied"):
             ar = result.get("apply_result", {})
-            msg += f"; applied → {ar.get('project_file')} (Recent + Next step)"
+            msg += f"; applied → {ar.get('project_file')} (Recent + Decisions)"
         print(msg, file=sys.stderr)
     return 0
 

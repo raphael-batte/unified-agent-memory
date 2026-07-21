@@ -11,10 +11,6 @@ One paragraph: what this project is about in your conversations.
 
 - 
 
-## Next step
-
-- _Deprecated — forward pointer lives in ## Open threads._
-
 ## Preferences
 
 - 

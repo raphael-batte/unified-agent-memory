@@ -1,4 +1,8 @@
-"""Extract forward pointer (## Next step) from transcript tail."""
+"""Extract a forward-pointer candidate from the transcript tail.
+
+Feeds ## Open threads drafts and their scoring; ## Next step itself was
+removed in v0.29.
+"""
 
 from __future__ import annotations
 

@@ -10,7 +10,7 @@ description: >
 
 # Agent Memory
 
-**Version:** 0.28.0 — see [VERSIONING.md](VERSIONING.md)
+**Version:** 0.29.0 — see [VERSIONING.md](VERSIONING.md)
 
 **Full protocol:** [INSTRUCTIONS.md](../../INSTRUCTIONS.md) · **Overview:** [ARCHITECTURE.md](../../ARCHITECTURE.md)
 
@@ -175,7 +175,7 @@ python3 "$PLUGIN_ROOT/scripts/memory-routing-hint.py" --json .
 | 3 (if unclear) | Global | `$MEMORY_HOME/context/GLOBAL_CONTEXT.md` |
 | Past decision / cross-chat | Search | `memory-search.py` then targeted Read |
 
-**`## Next step` is deprecated.** If a thread is vague — drill `[title](uuid)` in **## Recent**.
+**`## Next step` was removed** (v0.29+). If a thread is vague — drill `[title](uuid)` in **## Recent**.
 
 ---
 

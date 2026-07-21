@@ -146,7 +146,7 @@ def collect_prior_texts(project_path: Path | None) -> list[str]:
         project_path.read_text(encoding="utf-8", errors="replace")
     )
     prior: list[str] = []
-    for section in ("Decisions", "Next step", "Open threads", "Summary"):
+    for section in ("Decisions", "Open threads", "Summary"):
         for bullet in _bullets(sections.get(section, "")):
             if section == "Decisions":
                 norm = normalize_decision_content(bullet)

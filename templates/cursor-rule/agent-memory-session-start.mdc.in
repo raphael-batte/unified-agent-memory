@@ -1,5 +1,5 @@
 ---
-description: Continue project — read distill Next step first (agent-memory)
+description: Continue project — read distill Open threads first (agent-memory)
 alwaysApply: true
 ---
 
@@ -7,9 +7,9 @@ alwaysApply: true
 
 When continuing work in this workspace:
 
-1. Read `{{MEMORY_HOME}}/chats/projects/{{WORKSPACE_SLUG}}.md` — **## Next step** first.
-2. If the bullet is actionable, follow it.
-3. If `_No forward pointer._` or `[?]` — drill the `[title](uuid)` link in that line (transcript tail only, not full jsonl).
+1. Read `{{MEMORY_HOME}}/chats/projects/{{WORKSPACE_SLUG}}.md` — **## Open threads** first.
+2. Pick the thread matching the task at hand and follow it.
+3. If a thread is vague or marked `[auto]` — drill the `[title](uuid)` link in **## Recent** (transcript tail only, not full jsonl).
 4. For architecture, proposing plans, or cross-project rules — invoke `@agent-memory` or read INSTRUCTIONS Flow E.
 
 Framework: `{{FRAMEWORK_ROOT}}`

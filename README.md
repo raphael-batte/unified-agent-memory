@@ -71,7 +71,7 @@ On first install, `sessionStart` creates hub template files and an anchor config
 
 The skill routes the agent to the right memory layer per task (global context, feedback, or project chat distill). If a thread is vague — drill `[title](uuid)` in **## Recent**.
 
-> **`## Next step` is deprecated** (v0.24+). Existing bodies are passthrough-only; do not write there.
+> **`## Next step` was removed** (v0.29+). The forward pointer is `## Open threads`. Old files keep whatever text they still hold — nothing rewrites it.
 
 ## Where data lives
 
@@ -207,4 +207,4 @@ If you used symlink skills or global `~/.cursor/hooks.json` entries before the p
 
 Created by [raphael-batte](https://github.com/raphael-batte) · [raphbatte.com](https://raphbatte.com)
 
-**Version:** 0.28.0 — see [VERSIONING.md](VERSIONING.md)
+**Version:** 0.29.0 — see [VERSIONING.md](VERSIONING.md)

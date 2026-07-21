@@ -266,7 +266,7 @@ Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/<uuid>/<uuid>.j
 - **Preserve original chat language(s)** — do not translate during extract or merge
 - **Flow:** `distill-extract.py` → `distill-merge.py` (manifest + staging) → agent curates `## Decisions` via semantic-merge → hooks/sync `--apply` for bookkeeping
 - **Strategy:** `--strategy auto` → **importance** (per-segment selection for long chats); legacy: `tail`, `spread`, `all`
-- **`--apply`:** Recent ≤3, mechanical `## Summary` if empty, novel `[extracted]` from `decision_candidates` (cap 30 per file; FIFO evict to `archive/<slug>-decisions.md`). Optional **`[auto]` Open threads** draft from tail segment (v0.26+). **Never** raw staging bullets into curated Decisions. **`## Next step` is deprecated** — do not write there.
+- **`--apply`:** Recent ≤3, mechanical `## Summary` if empty, novel `[extracted]` from `decision_candidates` (cap 30 per file; FIFO evict to `archive/<slug>-decisions.md`). Optional **`[auto]` Open threads** draft from tail segment (v0.26+). **Never** raw staging bullets into curated Decisions. **`## Next step` was removed** (v0.29+).
 - **`[extracted]` vs curated:** hooks append precision-filtered `[extracted]`; agent writes `[curated]` / keeps `[bootstrap]` — curated bullets are not evicted by cap
 
 ```bash
@@ -299,7 +299,7 @@ python3 $FRAMEWORK_ROOT/scripts/verify-memory.py --memory-home "$MEMORY_HOME" --
 ## Summary | ## Decisions | ## Preferences | ## Open threads | ## Recent
 ```
 
-(`## Next step` may exist as deprecated passthrough — ignore.)
+(`## Next step` may survive in an old hub file — ignore it.)
 
 **Forward pointer:** **`## Open threads`** — one bullet per direction (`**[label]** text · _upd DATE_`), cap 7. Curated via `memory-pointer.py add-thread`. Distill may write **`[auto]`** drafts from tail topic segment; auto never overwrites curated. Rolling 30d cross-hub view: `memory-routing-hint.py --json .`
 

@@ -1,14 +1,9 @@
-"""Pointer provenance classes and curated Next step markers."""
+"""Pointer provenance classes for Open threads."""
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
-CURATED_POINTER_PREFIX = "[curated]"
-NEXT_STEP_DEPRECATED_MARKER = (
-    "_Deprecated — forward pointer lives in ## Open threads._"
-)
 STRONG_POINTER_SOURCES = frozenset({"user_commitment", "todo_state"})
 AGENT_LIVE_POINTER_SOURCE = "agent_live"
 PROVENANCE_CURATED = "curated"
@@ -18,7 +13,6 @@ PROVENANCE_AUTO = "auto"
 # Backward-compatible alias (v0.15–0.17 manifest values)
 PROVENANCE_LIVE = PROVENANCE_STRONG_SIGNAL
 
-_CURATED_RE = re.compile(r"^\[curated\]\s*", re.I)
 _LEGACY_LIVE = frozenset({"live"})
 
 
@@ -41,38 +35,6 @@ def pointer_provenance_class(source: str) -> str:
 
 def is_strong_pointer_source(source: str) -> bool:
     return source in STRONG_POINTER_SOURCES or source == AGENT_LIVE_POINTER_SOURCE
-
-
-def strip_curated_marker(bullet: str) -> str:
-    return _CURATED_RE.sub("", bullet.strip()).strip()
-
-
-def is_curated_next_step(bullet: str) -> bool:
-    return bool(_CURATED_RE.match(bullet.strip()))
-
-
-def find_curated_next_step(bullets: list[str]) -> str | None:
-    for bullet in bullets:
-        if is_curated_next_step(bullet):
-            text = strip_curated_marker(bullet)
-            if text:
-                return text
-    return None
-
-
-def format_curated_next_step(text: str) -> str:
-    body = text.strip()
-    if is_curated_next_step(body):
-        return f"- {body}"
-    return f"- {CURATED_POINTER_PREFIX} {body}"
-
-
-def is_next_step_deprecated(bullet: str) -> bool:
-    return NEXT_STEP_DEPRECATED_MARKER in bullet
-
-
-def format_next_step_deprecated() -> str:
-    return f"- {NEXT_STEP_DEPRECATED_MARKER}"
 
 
 def watermark_changed(extract: dict, manifest_entry: dict[str, Any] | None) -> bool:

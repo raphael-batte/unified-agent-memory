@@ -24,7 +24,7 @@ emit() {
 }
 
 mkdir -p "$(dirname "$LOG")"
-emit "[agent-memory] Session end — boundary distill updates Recent + ## Next step"
+emit "[agent-memory] Session end — boundary distill updates Recent + ## Open threads"
 emit "  1. Review merge-staging/ if Decisions need curation"
 emit "  2. verify-memory.py --memory-home $MEMORY_HOME"
 

@@ -85,7 +85,7 @@ Deploy / CI / git task  → conventions.md
 Proposing architecture  → fails + wins + preferences (Flow E)
 ```
 
-**`## Next step` is deprecated** (v0.24+). Do not write there.
+**`## Next step` was removed** (v0.29+) — deprecated since v0.24. The forward pointer is `## Open threads`; distill never creates the old section, and existing bodies are left untouched wherever a hub still has one.
 
 Distill runs on Claude Code's `SessionStart`, `Stop`, `PreCompact` and `SessionEnd`, and on
 Cursor's 2-hourly job. Manual batch: `sync-memory.py`.

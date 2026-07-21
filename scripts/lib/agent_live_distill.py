@@ -137,6 +137,6 @@ def build_precompact_user_message(
     if staging:
         lines.append(f"Mechanical staging: `{staging}`")
     lines.append(
-        "Sections required: ## Summary (1–3 bullets), optional ## Next step candidate."
+        "Sections required: ## Summary (1–3 bullets), optional ## Open thread candidate."
     )
     return " ".join(lines)

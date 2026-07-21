@@ -6,6 +6,34 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-07-21
+
+### Removed
+
+- **`## Next step` is gone from the project-file schema.** Deprecated since v0.24, it stayed in
+  `DEFAULT_SECTIONS` and was re-stamped on every apply, so the hub kept accumulating a section
+  nothing wrote and agents still read as a pointer. Distill no longer creates it; a section left
+  in an existing file is passthrough — nothing rewrites the user's text. `memory-pointer.py set`
+  now exits 2 pointing at `add-thread`. `## Open threads` is the only forward pointer.
+
+### Fixed
+
+- **A healthy hub no longer reports as degraded.** Pointer hit rate has been pinned at 0% since
+  v0.24 (every apply reported `deprecated_passthrough` with confidence 0.0), and three checks
+  read that as failure: the 25% floor in `health_baseline`, the `pointer_rate >= 0.4` gate on
+  `healthy`, and the low-confidence branch of the session-end nudge — which asked the user to
+  curate `## Next step` after *every* session. Errors are now the only degradation signal, and
+  the nudge fires only when an `[auto]` Open threads draft is actually awaiting curation.
+- `bump-version.sh` updates `.claude-plugin/plugin.json` too; it only knew the Cursor manifest,
+  so every bump left the two manifests skewed and the plugin test red.
+
+### Changed
+
+- **Open threads coverage replaces the pointer-extraction rate** in `memory-health` and
+  `memory-status`: share of projects (excluding `example.md`) carrying a thread, plus how many
+  were updated inside the retention window. Measured on disk, so it means something immediately
+  rather than after weeks of new metrics history.
+
 ## [0.28.0] - 2026-07-21
 
 ### Added
