@@ -10,7 +10,7 @@ Thanks for helping improve **cursor-agent-memory**. All changes land via **pull 
    ```bash
    bash scripts/install-git-hooks.sh
    ```
-4. **Develop** — clone repo, then `bash scripts/install-local.sh` (symlink as local plugin). Hub lives outside bundle (`~/.cursor/agent-memory/` by default).
+4. **Develop** — clone repo, then `bash scripts/install-local.sh` (symlink as local plugin). Hub lives outside bundle (`~/.agent-memory/` by default; per-env anchors under `~/.cursor/agent-memory/` and `~/.claude/agent-memory/`).
 5. **Test locally:**
    ```bash
    bash tests/run-tests.sh
@@ -40,14 +40,38 @@ Enable branch protection on `main`: require these checks before merge.
 
 ## What not to commit
 
-- `memory/` — personal hub (chats, context, secrets)
+- `memory/`, `.devhub/`, `.agent-memory/` — personal hub / distill data
 - Passwords, tokens, API keys anywhere in the repo
 - User-specific paths unless in examples with placeholders
+- **Real project, client, or product names** — including obfuscated denylists of them
 
 ## Generic plugin rule (mandatory)
 
-Examples and fixtures must use **fictional names only** (`alpha-hub`, `beta-app`, `widget-ui`, `work/acme/widget-v2`, `https://example.org/`).  
-Applies to `scripts/`, `tests/`, `templates/`, `docs/`, and top-level markdown. CI: `tests/test_no_hardcoded_paths.py` (paths + fictional examples).
+**Tests are part of the public repo.** Examples, fixtures, docs, and test strings must use
+**fictional names only**.
+
+| Use | Do not use |
+|-----|------------|
+| `example-app`, `other-app`, `alpha-hub`, `beta-app`, `widget-ui` | Real portfolio / client / product slugs |
+| `example-user`, path segments `me` / `alice` in synthetics | Real macOS usernames or a personal `Work` checkout path |
+| `https://example.org/` | Production hostnames you own |
+
+Applies to `scripts/`, `tests/`, `templates/`, `docs/`, `hooks/`, `rules/`, `skills/`, and
+top-level markdown. Agent rule: `.cursor/rules/no-local-naming.mdc`.
+
+**Enforcement is at push, not only in the tree.** `bash scripts/install-git-hooks.sh` installs a
+`pre-push` hook running `scripts/check-local-leaks.py` over every ref you push — branches by the
+lines they add, tags by their whole tree. Tags matter: they can carry commits that are on no
+branch, which is how a name reached the public remote before this existed.
+
+The checker derives what to block from your hub's project slugs and your account name, so no
+denylist of real names is ever committed here. On a machine without a hub (CI, a fresh clone) it
+falls back to shape checks — real home paths, obfuscated denylists. Generic technology names you
+have cleared go in `.leakcheck-allow`; never a client or product name.
+
+Run it by hand: `python3 scripts/check-local-leaks.py --rev v1.2.3 --show-matches`. Findings are
+redacted unless you ask, because they print in public CI logs. `--no-verify` exists, but a push
+to a public remote cannot be undone — history and forks keep it.
 
 ## Code style
 

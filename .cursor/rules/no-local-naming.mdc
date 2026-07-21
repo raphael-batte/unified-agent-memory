@@ -1,0 +1,33 @@
+---
+description: No personal/local project names in this public framework repo
+alwaysApply: true
+---
+
+# No local naming (this repo)
+
+This repository is **public framework code**. Tests, fixtures, docs, and examples ship with it.
+
+## Never commit
+
+- Real client / product / portfolio names from the maintainer's machine
+- Machine paths (personal home + `Work` checkouts)
+- Hub distill content (`$MEMORY_HOME`, `.devhub/`, `chats/projects/<real>.md`)
+- Encoded or obfuscated denylists of those real names (byte tuples, base64 of brands, etc.)
+
+## Use instead
+
+Fictional identifiers only, for example:
+
+| Kind | Examples |
+|------|----------|
+| Project slug | `example-app`, `other-app`, `alpha-hub`, `beta-app`, `widget-ui` |
+| User / home | `example-user`, `me`, `alice` (in synthetic paths only) |
+| URL | `https://example.org/`, `https://example.com/` |
+| Workspace encode | `Users-me-Work-example-app`, `-home-example-user-Work-example-app` |
+
+Allowlist lives in `tests/test_no_hardcoded_paths.py` (`APPROVED_FICTIONAL`). Extend that set when you need a new generic name — do not invent one-off real brands.
+
+## Enforcement
+
+- CI: `tests/test_no_hardcoded_paths.py`
+- Human: [CONTRIBUTING.md](../CONTRIBUTING.md) → **Generic plugin rule**

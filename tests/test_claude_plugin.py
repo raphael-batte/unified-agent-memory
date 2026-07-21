@@ -122,6 +122,10 @@ class TestHookScript(unittest.TestCase):
         proc = self._run("not json at all")
         self.assertEqual(proc.returncode, 0)
         self.assertEqual(json.loads(proc.stdout), {})
+        log = self.log.read_text(encoding="utf-8")
+        # Must not echo raw stdin — prompts / cwd can live in the first 80 bytes.
+        self.assertNotIn("not json at all", log)
+        self.assertIn("payload not logged", log)
 
     def test_empty_stdin_is_reported_distinctly(self) -> None:
         """'harness sent nothing' must not look like 'payload was malformed'."""

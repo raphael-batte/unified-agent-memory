@@ -6,6 +6,32 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.29.2] - 2026-07-21
+
+### Fixed
+
+- **Claude hook log no longer echoes stdin** on failure (could include prompts / cwd). Logs
+  event + byte length only; log file mode `0600`.
+- **Default hub docs** aligned to `~/.agent-memory/` (ARCHITECTURE, skill wizard, CONTRIBUTING).
+- **Removed maintainer-specific encoded project denylist** from `test_no_hardcoded_paths.py`.
+  Tests are public; examples use an allowlist of fictional names. Repo rule:
+  `.cursor/rules/no-local-naming.mdc`.
+
+## [0.29.2] - 2026-07-21
+
+### Added
+
+- **Leak gate on push.** `scripts/check-local-leaks.py` blocks personal data from leaving the
+  machine. The list of names to block cannot live in a public repo — that list *is* the private
+  data — so it is derived at runtime from the hub's project slugs plus the local account name,
+  minus the product's own vocabulary. Structural checks (`/Users/<someone>/`, encoded denylists)
+  need no list and run everywhere, including CI on a machine with no hub.
+- **`pre-push` hook** scanning every ref being pushed: branches by the lines they add, tags by
+  their whole tree. A tag was how the earlier leak shipped — its content was never on a branch,
+  so nothing that scanned the working tree or the branch diff could have caught it. `pre-commit`
+  runs the same check on the index; findings print redacted, since they land in public CI logs.
+- `.leakcheck-allow` for generic technology names cleared by the maintainer.
+
 ## [0.29.1] - 2026-07-21
 
 ### Changed

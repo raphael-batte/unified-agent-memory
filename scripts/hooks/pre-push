@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Last gate before anything leaves this machine.
+#
+# The repo is public and a leak has already happened through a *tag* whose
+# content was never on a branch, so this checks every ref being pushed —
+# branches by the lines they add, tags by their whole tree.
+#
+# Bypass with `git push --no-verify` only when you have read the finding and
+# know it is a false positive.
+set -uo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+CHECK="$REPO_ROOT/scripts/check-local-leaks.py"
+
+if [[ ! -f "$CHECK" ]]; then
+  echo "pre-push: $CHECK missing — refusing to push blind" >&2
+  exit 1
+fi
+
+ZERO="0000000000000000000000000000000000000000"
+STATUS=0
+
+# stdin: <local ref> <local sha> <remote ref> <remote sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [[ "$local_sha" == "$ZERO" ]] && continue  # deletion
+
+  if [[ "$local_ref" == refs/tags/* ]]; then
+    # A tag can carry commits that are on no branch — scan the whole tree.
+    python3 "$CHECK" --repo "$REPO_ROOT" --rev "$local_sha" || STATUS=1
+  elif [[ "$remote_sha" == "$ZERO" ]]; then
+    # New branch: diff against whatever the remote already has.
+    base="$(git merge-base "$local_sha" refs/remotes/upstream/main 2>/dev/null \
+      || git merge-base "$local_sha" refs/remotes/origin/main 2>/dev/null || true)"
+    if [[ -n "$base" ]]; then
+      python3 "$CHECK" --repo "$REPO_ROOT" --range "$base..$local_sha" || STATUS=1
+    else
+      python3 "$CHECK" --repo "$REPO_ROOT" --rev "$local_sha" || STATUS=1
+    fi
+  else
+    python3 "$CHECK" --repo "$REPO_ROOT" --range "$remote_sha..$local_sha" || STATUS=1
+  fi
+done
+
+if [[ $STATUS -ne 0 ]]; then
+  echo "" >&2
+  echo "pre-push: personal data in what you are pushing — push aborted." >&2
+  echo "Once it is on a public remote it cannot be taken back." >&2
+fi
+
+exit $STATUS

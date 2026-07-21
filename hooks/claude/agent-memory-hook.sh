@@ -28,6 +28,10 @@ if [[ ! -f "$PLUGIN_ROOT/scripts/boundary-hooks.py" ]]; then
 fi
 
 LOG="${AGENT_MEMORY_CLAUDE_HOOK_LOG:-$HOME/.claude/agent-memory-hook.log}"
+mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
+# Restrictive mode — the log may sit under ~/.claude and must not leak prompts.
+touch "$LOG" 2>/dev/null || true
+chmod 600 "$LOG" 2>/dev/null || true
 INPUT="$(cat)"
 
 EVENT="$(
@@ -59,14 +63,15 @@ if [[ $EXIT -ne 0 ]] || ! python3 -c "import json,sys; json.load(sys.stdin)" <<<
   RESULT='{}'
 fi
 
+# Never log raw stdin — UserPromptSubmit payloads can carry the user's prompt.
+# Event name + byte length is enough to tell empty vs malformed vs ok.
 {
   printf '%s %s exit=%s event=%s stdin=%sB\n' \
     "$(date '+%Y-%m-%d %H:%M:%S')" "$MODE" "$EXIT" "${EVENT:-none}" "${#INPUT}"
   if [[ -z "${INPUT//[[:space:]]/}" ]]; then
-    # Distinguish "the harness sent us nothing" from "the payload was malformed".
     echo "--- empty stdin: hook received no payload ---"
   elif [[ $EXIT -ne 0 ]]; then
-    printf -- '--- stdin[0:80]: %.80s\n' "$INPUT"
+    echo "--- failure: payload not logged (PII) ---"
   fi
   if [[ -s "$TMPERR" ]]; then
     echo "--- stderr ---"

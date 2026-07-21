@@ -1,0 +1,4 @@
+# Generic technology names cleared for use in docs and examples.
+# Never add a client, product, or machine name here — that is the data this check exists to stop.
+figma
+flutter

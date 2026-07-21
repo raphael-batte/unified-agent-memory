@@ -20,6 +20,13 @@ echo "== Plugin structure =="
 (cd "$ROOT" && node "$ROOT/scripts/validate-plugin.mjs")
 
 echo
+echo "== Local data =="
+# The suite points the anchor at tmp for isolation; unset it here so the check
+# resolves the real hub and has actual names to match, not just shapes.
+(cd "$ROOT" && env -u AGENT_MEMORY_ANCHOR_HOME \
+  python3 "$ROOT/scripts/check-local-leaks.py" --repo "$ROOT")
+
+echo
 echo "== Python tests =="
 python3 -m unittest discover -v
 

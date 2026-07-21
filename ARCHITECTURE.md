@@ -46,8 +46,8 @@ entries record `env` so it is visible which environment produced a chat.
 | Entity | Location | On plugin update |
 |--------|----------|------------------|
 | **Bundle** (code) | Cursor plugin dir (`~/.cursor/plugins/local/agent-memory/`) | replaced |
-| **Anchor** | `~/.cursor/agent-memory/config.json` | survives |
-| **Hub** (data) | path from anchor (default `~/.cursor/agent-memory/`) | survives |
+| **Anchor** (per env) | `~/.cursor/agent-memory/` · `~/.claude/agent-memory/` | survives |
+| **Hub** (data, shared) | path from anchor (default `~/.agent-memory/`) | survives |
 
 Path resolution: `MEMORY_HOME` — CLI → env → anchor → default. `PLUGIN_ROOT` — script path → `.cursor-plugin/plugin.json`.
 

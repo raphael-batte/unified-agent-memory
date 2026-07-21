@@ -35,16 +35,16 @@ Paths: anchor + `$MEMORY_HOME/config.json` (written by `init-memory` / `memory-d
 Example anchor:
 
 ```json
-{ "memory_home": "/Users/you/.agent-memory" }
+{ "memory_home": "/home/example-user/.agent-memory" }
 ```
 
 Example hub `config.json`:
 
 ```json
 {
-  "plugin_root": "/Users/you/.cursor/plugins/local/agent-memory",
-  "framework_root": "/Users/you/.cursor/plugins/local/agent-memory",
-  "memory_home": "/Users/you/.agent-memory"
+  "plugin_root": "/home/example-user/.cursor/plugins/local/agent-memory",
+  "framework_root": "/home/example-user/.cursor/plugins/local/agent-memory",
+  "memory_home": "/home/example-user/.agent-memory"
 }
 ```
 

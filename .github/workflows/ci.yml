@@ -27,6 +27,11 @@ jobs:
       - name: Validate plugin structure
         run: node scripts/validate-plugin.mjs
 
+      # No hub here, so this is the shape-only tier: real home paths and
+      # obfuscated denylists. The pre-push hook is the gate with teeth.
+      - name: Check for local data
+        run: python3 scripts/check-local-leaks.py --repo .
+
       - name: Run test suite
         run: bash tests/run-tests.sh
 
