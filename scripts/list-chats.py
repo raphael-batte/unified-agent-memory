@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -66,6 +67,9 @@ def main() -> None:
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--memory-home", metavar="PATH")
     parser.add_argument("--projects-root", metavar="DIR")
+    parser.add_argument(
+        "--json", action="store_true", help="Machine-readable inventory on stdout"
+    )
     args = parser.parse_args()
 
     mem = resolve_memory_home(args.memory_home, script_file=__file__)
@@ -75,6 +79,20 @@ def main() -> None:
         else None  # None = scan every installed environment
     )
     manifest_path = mem / "chats/manifest.json"
+
+    if args.json:
+        processed_ids = (
+            set(processed_by_id(load_manifest(manifest_path)))
+            if manifest_path.exists()
+            else set()
+        )
+        rows = scan_transcripts(projects_root)
+        if args.pending:
+            rows = [r for r in rows if r["id"] not in processed_ids]
+        for row in rows:
+            row["distilled"] = row["id"] in processed_ids
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+        return
 
     if not manifest_path.exists():
         print(f"Manifest not found: {manifest_path}")

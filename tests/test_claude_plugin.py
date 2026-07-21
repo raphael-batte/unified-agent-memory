@@ -76,36 +76,76 @@ class TestHookConfig(unittest.TestCase):
 
 
 class TestHookScript(unittest.TestCase):
-    def _run(self, payload: dict, mode: str = "boundary") -> subprocess.CompletedProcess:
-        env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(REPO))
-        with tempfile.TemporaryDirectory() as tmp:
-            env["AGENT_MEMORY_CLAUDE_HOOK_LOG"] = str(Path(tmp) / "hook.log")
-            env["MEMORY_HOME"] = str(Path(tmp) / "hub")
-            return subprocess.run(
-                ["bash", str(HOOK_SCRIPT), mode],
-                input=json.dumps(payload),
-                capture_output=True,
-                text=True,
-                env=env,
-            )
+    """Every case here must keep its log inside tmp — a test may not write to ~/.claude."""
 
-    def test_always_exits_zero_and_prints_json(self) -> None:
-        """A memory plugin must never break the session it is remembering."""
-        proc = self._run({"hook_event_name": "SessionEnd", "cwd": "/tmp/example-app"})
-        self.assertEqual(proc.returncode, 0)
-        json.loads(proc.stdout)
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.log = self.tmp / "hook.log"
+        self.addCleanup(self._tmp.cleanup)
 
-    def test_garbage_input_is_survivable(self) -> None:
-        env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(REPO))
-        proc = subprocess.run(
-            ["bash", str(HOOK_SCRIPT), "boundary"],
-            input="not json at all",
+    def _run(self, stdin: str, *args: str) -> subprocess.CompletedProcess:
+        env = dict(
+            os.environ,
+            CLAUDE_PLUGIN_ROOT=str(REPO),
+            AGENT_MEMORY_CLAUDE_HOOK_LOG=str(self.log),
+            MEMORY_HOME=str(self.tmp / "hub"),
+        )
+        return subprocess.run(
+            ["bash", str(HOOK_SCRIPT), *args],
+            input=stdin,
             capture_output=True,
             text=True,
             env=env,
         )
+
+    def test_always_exits_zero_and_prints_json(self) -> None:
+        """A memory plugin must never break the session it is remembering."""
+        proc = self._run(
+            json.dumps({"hook_event_name": "SessionEnd", "cwd": "/tmp/example-app"})
+        )
+        self.assertEqual(proc.returncode, 0)
+        json.loads(proc.stdout)
+
+    def test_garbage_input_is_survivable(self) -> None:
+        proc = self._run("not json at all")
         self.assertEqual(proc.returncode, 0)
         self.assertEqual(json.loads(proc.stdout), {})
+
+    def test_empty_stdin_is_reported_distinctly(self) -> None:
+        """'harness sent nothing' must not look like 'payload was malformed'."""
+        proc = self._run("")
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(json.loads(proc.stdout), {})
+        log = self.log.read_text(encoding="utf-8")
+        self.assertIn("empty stdin", log)
+        self.assertIn("stdin=0B", log)
+
+    def test_mode_derived_from_payload_without_args(self) -> None:
+        """`args` support is not guaranteed; SessionStart must still bootstrap."""
+        self._run(json.dumps({"hook_event_name": "SessionStart", "source": "startup"}))
+        self.assertIn("session-start", self.log.read_text(encoding="utf-8"))
+
+    def test_non_session_start_events_use_boundary(self) -> None:
+        for event in ("Stop", "SessionEnd", "PreCompact", "UserPromptSubmit"):
+            with self.subTest(event=event):
+                self.log.unlink(missing_ok=True)
+                self._run(json.dumps({"hook_event_name": event}))
+                line = self.log.read_text(encoding="utf-8").splitlines()[0]
+                self.assertIn("boundary", line)
+                self.assertIn(f"event={event}", line)
+
+    def test_explicit_arg_overrides_payload(self) -> None:
+        self._run(json.dumps({"hook_event_name": "Stop"}), "session-start")
+        self.assertIn("session-start", self.log.read_text(encoding="utf-8"))
+
+    def test_does_not_write_to_real_home(self) -> None:
+        """Regression: an earlier version of this test polluted ~/.claude."""
+        real_log = Path.home() / ".claude" / "agent-memory-hook.log"
+        before = real_log.stat().st_mtime if real_log.exists() else None
+        self._run(json.dumps({"hook_event_name": "Stop"}))
+        after = real_log.stat().st_mtime if real_log.exists() else None
+        self.assertEqual(before, after)
 
 
 class TestPromptSubmitRouting(unittest.TestCase):

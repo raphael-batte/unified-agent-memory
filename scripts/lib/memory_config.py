@@ -147,6 +147,26 @@ def persist_anchor(memory_home: Path) -> None:
     )
 
 
+def persist_all_anchors(memory_home: Path) -> list[Path]:
+    """Point every environment's anchor at one hub.
+
+    Used when adopting the shared hub: whichever environment the user opens next
+    must find the same memory, not create a second one beside it.
+    """
+    resolved = str(memory_home.expanduser().resolve())
+    written: list[Path] = []
+    for directory in anchor_dirs():
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / "config.json"
+        data = _read_json(path)
+        data["memory_home"] = resolved
+        path.write_text(
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        written.append(path)
+    return written
+
+
 def detect_plugin_root(start: str | Path | None = None) -> Path | None:
     """
     Walk parents from start until .cursor-plugin/plugin.json + INSTRUCTIONS.md.
