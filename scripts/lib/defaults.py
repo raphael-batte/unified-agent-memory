@@ -49,6 +49,12 @@ SYSTEM_BLOCK_TAGS: tuple[str, ...] = (
     "committing-changes-with-git",
     "creating-pull-requests",
     "user_rules",
+    # Claude Code injects hyphenated tags
+    "system-reminder",
+    "command-name",
+    "command-message",
+    "command-args",
+    "local-command-stdout",
 )
 
 SYSTEM_SINGLE_LINE_TAGS: tuple[str, ...] = (
