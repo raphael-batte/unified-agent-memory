@@ -31,5 +31,5 @@
   ],
   "logo": "assets/logo.svg",
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/cursor/hooks.json"
 }

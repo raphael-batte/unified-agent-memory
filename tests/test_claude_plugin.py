@@ -40,6 +40,17 @@ class TestManifests(unittest.TestCase):
         self.assertEqual(claude, cursor)
         self.assertEqual(claude, version_file)
 
+    def test_cursor_manifest_stays_out_of_bundle_root(self) -> None:
+        """Claude Code probes hooks/hooks.json itself and rejects Cursor's event
+        names (afterFileEdit), breaking `claude plugin list`. Each environment
+        keeps its manifest in its own subdirectory."""
+        self.assertFalse((REPO / "hooks" / "hooks.json").exists())
+        cursor = json.loads(
+            (REPO / ".cursor-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(cursor["hooks"], "./hooks/cursor/hooks.json")
+        self.assertTrue((REPO / "hooks" / "cursor" / "hooks.json").exists())
+
     def test_marketplace_points_at_repo_root(self) -> None:
         data = json.loads(MARKETPLACE.read_text(encoding="utf-8"))
         self.assertEqual(data["plugins"][0]["name"], "agent-memory")

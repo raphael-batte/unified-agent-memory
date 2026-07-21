@@ -5,7 +5,7 @@ Technical reference for distill-first memory with **forward pointer** (`## Open 
 ## Design goals
 
 1. **Distill-first** — `chats/projects/<slug>.md` is primary history; **`## Open threads`** is the forward pointer.
-2. **Plugin hooks** — bundle `hooks/hooks.json`; no global hooks merge in normal install.
+2. **Plugin hooks** — bundle `hooks/cursor/hooks.json`; no global hooks merge in normal install.
 3. **One skill** — `agent-memory` routes all layers.
 4. **Event-driven** — distill on session boundaries; `apply=True` updates Recent + optional `[auto]` Open threads draft.
 

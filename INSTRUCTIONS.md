@@ -277,7 +277,7 @@ python3 $FRAMEWORK_ROOT/scripts/distill-merge.py <uuid> --apply --project exampl
 python3 $FRAMEWORK_ROOT/scripts/verify-memory.py --memory-home "$MEMORY_HOME" --strict-secrets --gitleaks
 ```
 
-**Hooks:** plugin `hooks/hooks.json` — `sessionStart`/`workspaceOpen` (first-run + catch-up), `sessionEnd`/`preCompact` distill, `afterFileEdit` log. Do not merge into global `~/.cursor/hooks.json`.  
+**Hooks:** plugin `hooks/cursor/hooks.json` — `sessionStart`/`workspaceOpen` (first-run + catch-up), `sessionEnd`/`preCompact` distill, `afterFileEdit` log. Do not merge into global `~/.cursor/hooks.json`.  
 **Chat links:** Recent lines use `[title](uuid)` when transcript exists — follow link if distill lacks detail.  
 **Cursor rule:** optional `templates/cursor-rule/agent-memory-session-end.mdc`.
 

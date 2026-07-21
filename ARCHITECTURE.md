@@ -136,7 +136,7 @@ memory-search.py "query" [--layer chats,context,feedback] [--deep] [--top 8]
 
 ## Skills and hooks
 
-**Plugin bundle** ships `skills/agent-memory/SKILL.md` for both environments, plus `hooks/claude/hooks.json` for Claude Code. Cursor hooks are retained for legacy/manual invocation only — Cursor no longer runs them. Other protocols under `skills/*/SKILL.md` for on-demand Read.
+**Plugin bundle** ships `skills/agent-memory/SKILL.md` for both environments, plus `hooks/claude/hooks.json` for Claude Code and `hooks/cursor/hooks.json` for Cursor. Each environment's manifest lives under its own subdirectory: Claude Code also probes `hooks/hooks.json` at the bundle root and fails schema validation on Cursor's event names (`afterFileEdit`), so neither manifest may sit there. Cursor hooks are retained for legacy/manual invocation only — Cursor no longer runs them. Other protocols under `skills/*/SKILL.md` for on-demand Read.
 
 | Canonical event | Role |
 |------|------|

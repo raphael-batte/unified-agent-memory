@@ -275,7 +275,10 @@ async function main() {
     addError(`${pluginName}: rules/ directory is missing.`);
   }
 
-  const hooksPath = path.join(pluginDir, "hooks", "hooks.json");
+  // Follow the manifest rather than assuming hooks/hooks.json: the bundle root is
+  // reserved because Claude Code probes it and rejects Cursor's event names.
+  const hooksRef = extractPathValues(manifest.hooks)[0] ?? "./hooks/cursor/hooks.json";
+  const hooksPath = path.join(pluginDir, hooksRef);
   const hooksJson = await readJsonFile(hooksPath, "Hooks config");
   if (hooksJson) {
     await validateHookCommands(hooksJson, pluginName);

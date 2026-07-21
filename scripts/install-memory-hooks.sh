@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LEGACY: merge hooks into ~/.cursor/hooks.json — plugin bundle provides hooks/hooks.json.
+# LEGACY: merge hooks into ~/.cursor/hooks.json — plugin bundle provides hooks/cursor/hooks.json.
 set -euo pipefail
 
 echo "[agent-memory] deprecated: plugin hooks in hooks/ — use install-local.sh" >&2

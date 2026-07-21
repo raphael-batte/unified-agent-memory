@@ -176,7 +176,7 @@ flowchart TB
 | Area | Contents |
 |------|----------|
 | Skills | `skills/agent-memory/`, `skills/semantic-merge/` |
-| Hooks | `hooks/hooks.json` — sessionStart, sessionEnd, preCompact, afterFileEdit |
+| Hooks | `hooks/cursor/hooks.json` — sessionStart, sessionEnd, preCompact, afterFileEdit |
 | Scripts | distill, sync, search, verify, doctor, first-run, routing-hint, pointer |
 | Templates | hub scaffolds (materialized into `$MEMORY_HOME`) |
 

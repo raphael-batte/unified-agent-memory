@@ -17,12 +17,12 @@ echo -e "## T\n\n+ win" > "$OLD_HUB/feedback/wins.md"
 
 # plugin bundle layout
 test -f "$ROOT/.cursor-plugin/plugin.json"
-test -f "$ROOT/hooks/hooks.json"
+test -f "$ROOT/hooks/cursor/hooks.json"
 test -f "$ROOT/skills/agent-memory/SKILL.md"
 python3 -c "
 import json
 from pathlib import Path
-hooks = json.loads(Path('$ROOT/hooks/hooks.json').read_text())
+hooks = json.loads(Path('$ROOT/hooks/cursor/hooks.json').read_text())
 assert 'sessionStart' in hooks['hooks']
 assert 'workspaceOpen' in hooks['hooks']
 "
