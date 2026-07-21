@@ -262,6 +262,11 @@ def metrics_health(memory_home: Path) -> dict | None:
         mh = load_script_module("memory_health", "memory-health.py")
         rows = read_metrics(memory_home)
         data = mh.analyze_metrics(rows, days=7)
+        # Open threads coverage is read off disk, so it is the one signal that
+        # still means something on a hub with no recent distills.
+        from lib.hub_health import analyze_open_threads_coverage
+
+        data["hub_disk"] = analyze_open_threads_coverage(memory_home)
         return mh.enrich_with_baseline(memory_home, data, update_baseline=False)
     except Exception:
         return None
@@ -389,20 +394,22 @@ def print_dashboard(data: dict) -> None:
     mh = data.get("metrics_health")
     if mh:
         print("── Distill metrics (7d) ───────────────────")
-        rate = mh.get("pointer_extracted_rate")
-        rate_s = f"{rate * 100:.0f}%" if rate is not None else "—"
         print(
             f"  {mh.get('distilled', 0)} distilled · "
             f"{mh.get('skipped', 0)} skipped · "
             f"{mh.get('errors', 0)} errors"
         )
-        print(f"  Pointer extracted: {rate_s} · avg {mh.get('avg_distill_ms') or '—'} ms")
+        print(f"  Avg distill: {mh.get('avg_distill_ms') or '—'} ms")
+        hub = mh.get("hub_disk") or {}
+        cov = hub.get("threads_coverage_rate")
+        if cov is not None:
+            print(
+                f"  Open threads: {cov * 100:.0f}% of {hub.get('projects_scanned', 0)} projects "
+                f"({hub.get('projects_fresh', 0)} fresh · {hub.get('threads_total', 0)} threads)"
+            )
         deg = mh.get("degradation") or {}
         if deg.get("degraded"):
             print(f"  ⚠ {deg.get('degradation_reason')}")
-        bl = mh.get("baseline") or {}
-        if bl.get("median_hit_rate") is not None:
-            print(f"  Baseline median: {float(bl['median_hit_rate']) * 100:.0f}%")
         print()
 
 

@@ -20,7 +20,6 @@ from lib.boundary_debounce import record_boundary_distill, should_skip_debounce 
 from lib.chats_manifest import load_manifest, processed_by_id  # noqa: E402
 from lib.envs.base import AgentEnv  # noqa: E402
 from lib.hub_lock import HubBusy, hub_lock  # noqa: E402
-from lib.defaults import POINTER_LOW_CONFIDENCE  # noqa: E402
 from lib.distill_metrics import append_metric  # noqa: E402
 from lib.pointer_curation_queue import (  # noqa: E402
     enqueue as enqueue_pointer,
@@ -564,23 +563,25 @@ def handle_session_start(
 
 
 def _session_end_user_message(distill: dict[str, Any]) -> str | None:
+    """Nudge only when an ``[auto]`` Open threads draft is waiting for curation.
+
+    The old branches keyed off ``next_step_kind`` and ``pointer_confidence``,
+    both of which have been frozen at ``deprecated_passthrough`` / 0.0 since
+    ``## Next step`` was retired — so every single session end asked the user to
+    curate a section the framework no longer writes.
+    """
     if distill.get("status") != "distilled":
         return None
     apply_result = distill.get("apply_result") or {}
-    kind = apply_result.get("next_step_kind")
-    conf = float(apply_result.get("pointer_confidence") or 0.0)
+    draft_result = distill.get("draft_result") or {}
+    should_curate, _reason = needs_enqueue(apply_result, draft_result=draft_result)
+    if not should_curate:
+        return None
     project_rel = distill.get("project_rel", "chats/projects/<slug>.md")
-    if kind in ("placeholder_empty", "placeholder_stale"):
-        return (
-            f"[agent-memory] Curate ## Next step in {project_rel} — "
-            "use templates/chats/pointer-curate-prompt.md + latest merge-staging."
-        )
-    if conf < POINTER_LOW_CONFIDENCE:
-        return (
-            f"[agent-memory] Low-confidence pointer ({conf:.2f}) in {project_rel} — "
-            "curate ## Next step (pointer-curate-prompt.md)."
-        )
-    return None
+    return (
+        f"[agent-memory] Curate the [auto] Open thread in {project_rel} — "
+        "use templates/chats/pointer-curate-prompt.md + latest merge-staging."
+    )
 
 
 def handle_boundary(
