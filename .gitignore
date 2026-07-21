@@ -11,3 +11,5 @@ __pycache__/
 memory/
 .agent-memory/
 .memory/
+# local dev hub (never commit distilled content)
+.devhub/
