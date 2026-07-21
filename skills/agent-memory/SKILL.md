@@ -1,8 +1,8 @@
 ---
 name: agent-memory
 description: >
-  Single entry for Cursor agent memory. Set up with "set up agent memory"; sync with
-  "sync with agent memory". Routes layers by task — forward pointer in ## Open threads
+  Single entry for agent memory, shared across Cursor and Claude Code. Set up with
+  "set up agent memory"; sync with "sync with agent memory". Routes layers by task — forward pointer in ## Open threads
   (rolling 30d), global context, feedback. Secrets redaction on extract; verify-memory + gitleaks
   guard the hub (never store credentials). Hub outside plugin bundle. Do NOT load all
   layers every session.

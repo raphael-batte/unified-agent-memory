@@ -8,11 +8,12 @@ from pathlib import Path
 
 from helpers import REPO_ROOT
 
+# `~/.agent-memory` is the documented default hub shared by all environments, so it is
+# allowed. What must never appear is a path tied to one machine or checkout.
 FORBIDDEN = [
     re.compile(r"~/Work/"),
     re.compile(r"~/agent-memory"),
     re.compile(r"\$HOME/agent-memory"),
-    re.compile(r"~/.agent-memory"),
     re.compile(r"~/.config/cursor-agent-memory"),
     re.compile(r"/Users/[^/\s]+/Work/"),
 ]

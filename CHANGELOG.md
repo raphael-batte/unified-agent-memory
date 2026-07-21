@@ -1,10 +1,55 @@
 # Changelog
 
-All notable changes to **cursor-agent-memory** (framework). Format [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning [SemVer](https://semver.org/).
+All notable changes to **agent-memory** (framework). Format [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versioning [SemVer](https://semver.org/).
 
 Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
+
+## [0.28.0] - 2026-07-21
+
+### Added
+
+- **Agent environment modules** (`scripts/lib/envs/`). An environment declares the rules of its
+  harness — transcript root and layout, trigger mechanism, anchor location, payload and reply
+  shape — while distill, merge, search and Open threads stay environment agnostic. Ships
+  `cursor` and `claude`; adding another is a module plus a registry entry.
+- **Claude Code support.** Native plugin (`.claude-plugin/`) with hooks for `SessionStart`,
+  `UserPromptSubmit`, `Stop`, `PreCompact` and `SessionEnd`. The user's `~/.claude/settings.json`
+  is not modified. `Stop` distills per turn to staging and `PreCompact` fires on the context
+  limit, so memory survives compaction and hard session kills.
+- **Claude transcript adapter** (`transcript_claude.py`). Rows normalize onto the Cursor row
+  shape, so tool calls and TodoWrite reconstruction are shared. Sidechain, bookkeeping and
+  `tool_result` rows are dropped.
+- **Shared hub write protocol** (`hub_lock.py`). Adopts the same `mkdir` lock the Cursor cron
+  script already takes; writes go through temp + `os.replace`. A hook that finds the hub busy
+  records staging and returns instead of blocking the session.
+- **Pointer injection for event-driven environments** (`routing_context.py`). Open threads are
+  injected at session start and prompt submit, debounced 30 minutes per session — the
+  equivalent of Cursor's `alwaysApply` rule.
+- Manifest entries carry `env`; `AGENT_MEMORY_ENV`, `AGENT_MEMORY_CURSOR_PROJECTS` and
+  `AGENT_MEMORY_CLAUDE_PROJECTS` overrides.
+
+### Changed
+
+- Transcript discovery, `find_transcript()` and `workspace_from_path()` cover every installed
+  environment. `projects_root` now defaults to "all environments" instead of Cursor's root.
+- Default hub is the neutral `~/.agent-memory/`; each environment keeps its own anchor pointing
+  at it, and an environment installed second inherits the existing hub.
+- `list-chats.py` reuses the shared scan and parser instead of its own Cursor-only copies.
+- `install-periodic-sync.sh` resolves the hub for its launchd log paths rather than hardcoding
+  `~/.cursor/agent-memory/logs`.
+
+### Fixed
+
+- Generic transcript adapter silently failed on exports nesting role and content under
+  `message` — it now unwraps them.
+- `hub_lock` read its timeouts as argument defaults, making them unpatchable.
+
+### Notes
+
+- Cursor dropped hook support in June 2026; that path is the 2-hourly launchd job.
+  `hooks/hooks.json` is retained for legacy and manual invocation only.
 
 ## [0.27.0] - 2026-07-12
 

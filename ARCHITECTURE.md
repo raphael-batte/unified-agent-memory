@@ -4,7 +4,7 @@ Human-oriented overview. Runtime protocol for agents: [INSTRUCTIONS.md](INSTRUCT
 
 ## Problem
 
-Cursor agents start each session with no durable memory. Project rules help for one repo, but not for:
+Coding agents start each session with no durable memory. Project rules help for one repo, but not for:
 
 - cross-project conventions (deploy, git, CI)
 - what you already rejected or praised
@@ -12,6 +12,34 @@ Cursor agents start each session with no durable memory. Project rules help for 
 - where you stopped yesterday in a multi-repo workflow
 
 This framework is a **routed memory system**: small INDEX-first files, explicit layer choice per task, rotation at size limits, and tooling so agents never load megabyte jsonl transcripts.
+
+## Environment modules
+
+An **agent environment** is a module under `scripts/lib/envs/` declaring the rules of its
+harness: where transcripts live, how they are laid out, what triggers a distill, where its
+anchor sits, and what shape a trigger's payload and reply take. Everything above that layer —
+distill, merge, search, Open threads — is environment agnostic and must not branch on the
+harness. Adding one (Codex, say) is a new module plus a registry entry.
+
+| | `cursor` | `claude` |
+|---|---|---|
+| Transcripts | `~/.cursor/projects/*/agent-transcripts/**/*.jsonl` | `~/.claude/projects/<encoded-cwd>/<session>.jsonl` |
+| Row shape | role at top level | role under `message` |
+| Trigger | launchd every 2h — **hooks unsupported since June 2026** | event hooks |
+| Payload workspace | `workspace_roots` list | single `cwd` |
+| Reply shape | `user_message` | `hookSpecificOutput.additionalContext` |
+
+Claude rows are normalized onto the Cursor row shape before parsing, so tool calls and
+TodoWrite reconstruction are shared rather than reimplemented.
+
+## Shared hub, two writers
+
+Both environments write one hub on different schedules. The Cursor cron script guards itself
+with a `mkdir` lock at `$MEMORY_HOME/.state/periodic-sync.lock`; the hook path adopts that same
+lock rather than inventing a second protocol. Writes go through temp + `os.replace`, so a
+reader never sees a partial file. A hook that cannot take the lock within 5 seconds does not
+wait — it writes staging and returns, leaving the durable apply to the next trigger. Manifest
+entries record `env` so it is visible which environment produced a chat.
 
 ## Plugin bundle + external hub
 
@@ -59,13 +87,15 @@ Proposing architecture  → fails + wins + preferences (Flow E)
 
 **`## Next step` is deprecated** (v0.24+). Do not write there.
 
-Boundary hooks distill on `sessionStart` (first-run + catch-up), `workspaceOpen`, `sessionEnd`, `preCompact`. Manual batch: `sync-memory.py`.
+Distill runs on Claude Code's `SessionStart`, `Stop`, `PreCompact` and `SessionEnd`, and on
+Cursor's 2-hourly job. Manual batch: `sync-memory.py`.
 
 Full routing table and self-checks: [INSTRUCTIONS.md → Session start](INSTRUCTIONS.md#session-start).
 
 ## Chat distill pipeline
 
-Transcripts live in `~/.cursor/projects/*/agent-transcripts/` (read-only). Agents must **not** load raw jsonl.
+Transcripts are read-only and live under each environment's root (see the table above).
+Agents must **not** load raw jsonl.
 
 ```
 transcript jsonl
@@ -106,13 +136,18 @@ memory-search.py "query" [--layer chats,context,feedback] [--deep] [--top 8]
 
 ## Skills and hooks
 
-**Plugin bundle** ships `skills/agent-memory/SKILL.md` and `hooks/hooks.json` (no global `~/.cursor/hooks.json` merge). Other protocols under `skills/*/SKILL.md` for on-demand Read.
+**Plugin bundle** ships `skills/agent-memory/SKILL.md` for both environments, plus `hooks/claude/hooks.json` for Claude Code. Cursor hooks are retained for legacy/manual invocation only — Cursor no longer runs them. Other protocols under `skills/*/SKILL.md` for on-demand Read.
 
-| Hook | Role |
+| Canonical event | Role |
 |------|------|
-| `sessionStart` / `workspaceOpen` | First-run bootstrap; catch-up distill; open-thread curation reminders |
+| `sessionStart` | First-run bootstrap; catch-up distill; open-thread curation reminders |
+| `promptSubmit` | Inject Open threads (Claude only — replaces Cursor's `alwaysApply` rule) |
+| `liveDistill` | Per-turn distill to staging, no project apply (Claude `Stop`) |
 | `sessionEnd` / `preCompact` | Distill current chat; enqueue open-thread curation on `[auto]` draft |
 | `afterFileEdit` | Log chats hub edits |
+
+`preCompact` with `trigger=auto` is the context-limit case: together with `liveDistill` it means
+memory survives compaction and hard kills, not just a clean exit.
 
 See [docs/SYNC-AND-TRIGGERS.md](docs/SYNC-AND-TRIGGERS.md) · [ONBOARDING.md](ONBOARDING.md).
 
