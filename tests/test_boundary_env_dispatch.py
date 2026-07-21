@@ -114,13 +114,19 @@ class TestBoundaryRouting(unittest.TestCase):
             self.assertEqual(result["live_distill"], {"status": "distilled"})
             live.assert_called_once()
 
-    def test_prompt_submit_is_not_a_distill_boundary(self) -> None:
+    def test_prompt_submit_routes_to_injection_not_distill(self) -> None:
+        """Prompt submit surfaces the pointer; it must never trigger a distill."""
         with tempfile.TemporaryDirectory() as tmp:
             hub = self._hub(tmp)
             payload = dict(CLAUDE_PAYLOAD, hook_event_name="UserPromptSubmit")
-            result = bh.handle_boundary(payload, memory_home=hub)
-            self.assertEqual(result["status"], "ignored")
+            with mock.patch.object(bh, "run_boundary_distill") as distill:
+                with mock.patch.object(bh, "_run_live_distill_for") as live:
+                    result = bh.handle_boundary(payload, memory_home=hub)
             self.assertEqual(result["event"], "promptSubmit")
+            # Empty hub: nothing to inject, but crucially nothing distilled either.
+            self.assertEqual(result["status"], "skipped")
+            distill.assert_not_called()
+            live.assert_not_called()
 
     def test_claude_session_end_reaches_boundary_distill(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

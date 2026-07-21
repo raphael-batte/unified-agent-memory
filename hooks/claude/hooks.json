@@ -1,0 +1,79 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/claude/agent-memory-hook.sh",
+            "args": [
+              "session-start"
+            ],
+            "timeout": 60,
+            "statusMessage": "Loading agent memory..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/claude/agent-memory-hook.sh",
+            "args": [
+              "boundary"
+            ],
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/claude/agent-memory-hook.sh",
+            "args": [
+              "boundary"
+            ],
+            "async": true,
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto|manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/claude/agent-memory-hook.sh",
+            "args": [
+              "boundary"
+            ],
+            "timeout": 120,
+            "statusMessage": "Distilling memory before compaction..."
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/claude/agent-memory-hook.sh",
+            "args": [
+              "boundary"
+            ],
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -347,6 +347,36 @@ def run_boundary_distill(
     return result
 
 
+def _prompt_submit_context(
+    payload: dict[str, Any],
+    *,
+    memory_home: Path,
+) -> dict[str, Any]:
+    """Open threads for a prompt-submit event, debounced per session."""
+    from lib.routing_context import record_injection, render_open_threads, should_inject
+
+    session_id = str(payload.get("session_id") or chat_id_from_payload(payload) or "")
+    if session_id and not should_inject(memory_home, session_id):
+        return {"status": "skipped", "reason": "debounced"}
+
+    roots = workspace_roots(payload)
+    workspace = Path(roots[0]).expanduser() if roots else None
+    try:
+        message = render_open_threads(memory_home, workspace)
+    except OSError:
+        return {"status": "skipped", "reason": "hub_unreadable"}
+
+    if not message:
+        return {"status": "skipped", "reason": "no_open_threads"}
+
+    if session_id:
+        try:
+            record_injection(memory_home, session_id)
+        except OSError:
+            pass
+    return {"status": "injected", "user_message": message}
+
+
 def _run_live_distill_for(
     payload: dict[str, Any],
     *,
@@ -566,6 +596,14 @@ def handle_boundary(
         "env": env.name,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
+
+    if event == "promptSubmit":
+        # Routing: put the forward pointer in front of the agent when it is needed,
+        # rather than parking it in context for the whole session.
+        result.update(
+            _prompt_submit_context(payload, memory_home=memory_home)
+        )
+        return result
 
     if event in LIVE_EVENTS:
         # Per-turn distill: staging + manifest only, never touches the project file.
