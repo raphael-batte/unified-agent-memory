@@ -332,8 +332,11 @@ Deep dives (read on demand): `skills/semantic-merge/SKILL.md`, `templates/chats/
 
 ### Path resolution (all scripts)
 
-`MEMORY_HOME`: CLI `--memory-home` → `$MEMORY_HOME` env → anchor `~/.cursor/agent-memory/config.json` → default `~/.cursor/agent-memory/`.  
-`PLUGIN_ROOT`: detect from script path → `.cursor-plugin/plugin.json`.  
+`MEMORY_HOME`: CLI `--memory-home` → `$MEMORY_HOME` env → this environment's anchor
+(`~/.cursor/agent-memory/config.json` or `~/.claude/agent-memory/config.json`) → any other
+environment's anchor → default `~/.agent-memory/`. The cross-environment fallback is what lets
+a second environment join an existing hub instead of starting an empty one beside it.  
+`PLUGIN_ROOT`: detect from script path → `.cursor-plugin/plugin.json` or `.claude-plugin/plugin.json`.  
 Scripts write user data **only** to `$MEMORY_HOME`; anchor at fixed path outside bundle.
 
 ---

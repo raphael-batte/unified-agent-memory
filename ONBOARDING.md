@@ -21,7 +21,22 @@ bash scripts/install-local.sh
 | Reload Cursor | Plugin discovers skills, hooks, and bundled `rules/` |
 | `init-memory.sh` | Creates hub + anchor (idempotent; never overwrites user data); re-links global rule |
 
-Default hub: `~/.cursor/agent-memory/` (first `sessionStart` may create template stubs; **restore** via `migrate-memory.sh --from backup`).
+Default hub: `~/.agent-memory/` — **shared by every environment**, so Cursor and Claude Code
+read and write the same memory. First `sessionStart` may create template stubs; **restore** via
+`migrate-memory.sh --from backup`. Upgrading from a pre-0.28 per-environment hub:
+`python3 scripts/migrate-memory.py --to-shared`.
+
+### Claude Code
+
+```bash
+/plugin marketplace add raphael-batte/cursor-agent-memory   # or a local clone path
+/plugin install agent-memory
+```
+
+Hooks ship with the plugin; `~/.claude/settings.json` is not modified. Hooks are read when a
+session starts, so open a **new** session after installing. `PostToolUse` is deliberately not
+declared — the apply-guard it would call is not wired to the hook CLI, and an empty hook is
+worse than none.
 
 ```bash
 bash scripts/init-memory.sh   # optional — hooks also init idempotently
@@ -81,7 +96,7 @@ python3 scripts/verify-memory.py --memory-home "$MEMORY_HOME"
 If you already have data (e.g. `<clone>/memory/`):
 
 ```bash
-bash scripts/migrate-memory.sh --from /path/to/old-hub --to "$HOME/.cursor/agent-memory"
+bash scripts/migrate-memory.sh --from /path/to/old-hub --to "$HOME/.agent-memory"
 # or keep old path — init-memory + doctor --fix writes anchor
 python3 scripts/memory-doctor.py --fix
 ```
@@ -118,8 +133,11 @@ python3 scripts/memory-doctor.py
 python3 scripts/memory-status.py --brief
 ```
 
-Anchor: `~/.cursor/agent-memory/config.json`  
-Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/`
+Anchors: `~/.cursor/agent-memory/config.json` · `~/.claude/agent-memory/config.json`
+(both point at the shared hub)  
+Transcripts (read-only): `~/.cursor/projects/*/agent-transcripts/` ·
+`~/.claude/projects/<encoded-cwd>/*.jsonl`  
+Inventory across environments: `python3 scripts/list-chats.py --json`
 
 ## Troubleshooting
 
