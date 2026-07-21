@@ -19,6 +19,7 @@ from lib.boundary_crash import report_exception  # noqa: E402
 from lib.boundary_debounce import record_boundary_distill, should_skip_debounce  # noqa: E402
 from lib.chats_manifest import load_manifest, processed_by_id  # noqa: E402
 from lib.envs.base import AgentEnv  # noqa: E402
+from lib.hub_lock import HubBusy, hub_lock  # noqa: E402
 from lib.defaults import POINTER_LOW_CONFIDENCE  # noqa: E402
 from lib.distill_metrics import append_metric  # noqa: E402
 from lib.pointer_curation_queue import (  # noqa: E402
@@ -311,13 +312,37 @@ def run_boundary_distill(
             "transcript": str(jsonl),
         }
 
-    result = distill_jsonl(
-        jsonl,
-        memory_home=memory_home,
-        projects_root=projects_root,
-        strategy=strategy,
-        event=event,
-    )
+    # The hub is shared with the Cursor cron job. If it holds the lock we do not
+    # stall an interactive session: write staging only and let the next trigger
+    # do the durable apply.
+    try:
+        with hub_lock(memory_home, owner=f"{event}-hook"):
+            result = distill_jsonl(
+                jsonl,
+                memory_home=memory_home,
+                projects_root=projects_root,
+                strategy=strategy,
+                event=event,
+            )
+    except HubBusy:
+        _record_metric(
+            memory_home,
+            {
+                "event": event,
+                "status": "deferred",
+                "chat_id": chat_id,
+                "reason": "hub_busy",
+            },
+        )
+        result = distill_jsonl(
+            jsonl,
+            memory_home=memory_home,
+            projects_root=projects_root,
+            strategy=strategy,
+            apply=False,
+            event=event,
+        )
+        result["deferred"] = "hub_busy"
     result["event"] = event
     return result
 

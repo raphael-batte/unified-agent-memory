@@ -257,6 +257,7 @@ def run_merge(
         transcript_available=bool(extract.get("transcript_available")),
         watermark_user_count=int(wm.get("user_message_count") or 0),
         watermark_tail_hash=str(wm.get("tail_hash") or ""),
+        env=extract.get("transcript_adapter"),
     )
 
     project_path = memory_home / "chats" / project_rel

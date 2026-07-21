@@ -14,6 +14,7 @@ from lib.defaults import (
 from lib.transcript_cursor import safe_path_component
 from lib.distill_links import enrich_extract, format_chat_markdown_link, recent_bullet
 from lib.forward_pointer import NO_POINTER_MARKER, STALE_POINTER_PREFIX
+from lib.hub_lock import write_atomic
 from lib.message_importance import mechanical_bullets
 from lib.novelty import (
     dedupe_bullets,
@@ -418,9 +419,8 @@ def _archive_bullets_from_text(text: str, *, slug: str) -> list[str]:
 def _write_archive_decisions(path: Path, slug: str, bullets: list[str]) -> None:
     lines = [b if b.strip().startswith("- ") else f"- {b}" for b in bullets]
     body = "\n".join(lines)
-    path.write_text(
-        f"# Archived decisions — {slug}\n\n{_ARCHIVE_DECISIONS_HEADING}\n\n{body}\n",
-        encoding="utf-8",
+    write_atomic(
+        path, f"# Archived decisions — {slug}\n\n{_ARCHIVE_DECISIONS_HEADING}\n\n{body}\n"
     )
 
 
@@ -499,7 +499,7 @@ def compact_live_decisions_file(project_path: Path) -> int:
     if removed <= 0:
         return 0
     sections["Decisions"] = _format_bullets(compacted)
-    project_path.write_text(_join_sections(preamble, sections), encoding="utf-8")
+    write_atomic(project_path, _join_sections(preamble, sections))
     return removed
 
 
@@ -618,7 +618,7 @@ def apply_mechanical_auto_decisions(project_path: Path, extract: dict) -> int:
     if _bullets(sections.get("Decisions", "")):
         return 0
     sections["Decisions"] = _format_bullets(seeds)
-    project_path.write_text(_join_sections(preamble, sections), encoding="utf-8")
+    write_atomic(project_path, _join_sections(preamble, sections))
     return len(seeds)
 
 
@@ -729,7 +729,7 @@ def apply_extract_to_project(
     finally:
         tmp.unlink(missing_ok=True)
 
-    project_path.write_text(merged, encoding="utf-8")
+    write_atomic(project_path, merged)
 
     return {
         "project_file": str(project_path),

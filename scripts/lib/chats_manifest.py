@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+
+from lib.hub_lock import write_json_atomic
 from typing import Any
 
 from lib.timestamps import now_iso, parse_distilled_at
@@ -27,8 +29,8 @@ def load_manifest(path: Path) -> dict[str, Any]:
 
 
 def save_manifest(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    # Atomic: the hub is shared, and a reader must never see a half-written manifest.
+    write_json_atomic(path, data)
 
 
 def primary_project_rel(
@@ -293,6 +295,7 @@ def make_processed_entry(
     watermark_tail_hash: str | None = None,
     pointer_source: str | None = None,
     pointer_set_at: str | None = None,
+    env: str | None = None,
 ) -> dict[str, Any]:
     today = distilled_at or now_iso()
     slug = workspace_slug(workspace)
@@ -308,6 +311,9 @@ def make_processed_entry(
         "distilled_to": distilled_to,
         "summary": summary[:140],
     }
+    if env:
+        # Which agent environment produced this chat — the hub is shared.
+        entry["env"] = env
     if resolved_path:
         entry["workspace_path"] = resolved_path
     if transcript_available is not None:

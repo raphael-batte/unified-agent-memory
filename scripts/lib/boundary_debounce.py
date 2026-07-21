@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from lib.defaults import BOUNDARY_DEBOUNCE_SECONDS
+from lib.hub_lock import write_json_atomic
 
 _STATE_NAME = "boundary-debounce.json"
 
@@ -48,4 +49,4 @@ def record_boundary_distill(memory_home: Path, chat_id: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     data = _load_state(path)
     data[chat_id] = {"ts": time.time()}
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    write_json_atomic(path, data)

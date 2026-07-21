@@ -82,14 +82,20 @@ def hub_lock(
     memory_home: Path,
     *,
     owner: str = "hook",
-    timeout: float = DEFAULT_TIMEOUT_SECONDS,
-    stale_after: float = STALE_AFTER_SECONDS,
+    timeout: float | None = None,
+    stale_after: float | None = None,
 ) -> Iterator[Path]:
     """Hold the shared hub lock, or raise :class:`HubBusy`.
 
     Callers that must not block the user should catch ``HubBusy`` and fall back to
     staging-only work, leaving the durable write to the next trigger.
     """
+    # Read the module defaults at call time so they stay configurable and patchable.
+    if timeout is None:
+        timeout = DEFAULT_TIMEOUT_SECONDS
+    if stale_after is None:
+        stale_after = STALE_AFTER_SECONDS
+
     path = lock_path(memory_home)
     deadline = time.monotonic() + max(0.0, timeout)
 
