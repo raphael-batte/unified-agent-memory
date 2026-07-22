@@ -148,5 +148,35 @@ class TestPushGate(unittest.TestCase):
         self.assertNotIn("jsmith", result.stderr)
 
 
+class TestFileTypeCoverage(unittest.TestCase):
+    """A leak must fail in every text file, not only the ones we thought of.
+
+    Scanning was gated on an extension allowlist, so the identical finding that
+    failed in a .md passed in .js, .html, .jsonl and an extension-less script.
+    .jsonl is the transcript format a live token was once found in.
+    """
+
+    def _scanned(self, name: str) -> bool:
+        return clk._should_scan(name)
+
+    def test_text_types_outside_the_old_allowlist_are_scanned(self) -> None:
+        for name in ("app.js", "dump.html", "chat.jsonl", "deploy", "styles.css",
+                     "index.ts", "Makefile", ".gitignore", "notes.md"):
+            with self.subTest(name=name):
+                self.assertTrue(self._scanned(name))
+
+    def test_binary_payloads_are_skipped(self) -> None:
+        for name in ("logo.png", "font.woff2", "archive.zip", "lib.dylib", "clip.mp4"):
+            with self.subTest(name=name):
+                self.assertFalse(self._scanned(name))
+
+    def test_binary_suffix_match_is_case_insensitive(self) -> None:
+        self.assertFalse(self._scanned("PHOTO.PNG"))
+
+    def test_self_exempt_files_stay_skipped(self) -> None:
+        self.assertFalse(self._scanned("CHANGELOG.md"))
+        self.assertFalse(self._scanned("scripts/check-local-leaks.py"))
+
+
 if __name__ == "__main__":
     unittest.main()

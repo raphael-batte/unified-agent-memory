@@ -27,6 +27,7 @@ from lib.apply_guard import check_cli_apply_guard  # noqa: E402
 from lib.defaults import APPLY_REVIEW_MAX_DAYS  # noqa: E402
 from lib.distill_links import enrich_extract, recent_bullet  # noqa: E402
 from lib.memory_config import resolve_memory_home  # noqa: E402
+from lib.transcript_cursor import TranscriptEmptyError  # noqa: E402
 from lib.agent_live_distill import enrich_extract_with_agent_live  # noqa: E402
 from lib.open_thread_draft import draft_open_threads_after_apply  # noqa: E402
 from lib.novelty import collect_prior_texts, filter_novel_items  # noqa: E402
@@ -411,13 +412,26 @@ def main() -> int:
             return 1
         manifest = load_manifest(memory_home / "chats" / "manifest.json")
         manifest_entry = processed_by_id(manifest).get(chat_id)
-        extract = de.build_extract(
-            jsonl,
-            projects_root=projects_root,
-            strategy=args.strategy,
-            memory_home=memory_home,
-            manifest_entry=manifest_entry,
-        )
+        try:
+            extract = de.build_extract(
+                jsonl,
+                projects_root=projects_root,
+                strategy=args.strategy,
+                memory_home=memory_home,
+                manifest_entry=manifest_entry,
+            )
+        except TranscriptEmptyError:
+            # A chat with no user turns is a normal outcome, not a failure. This
+            # used to exit with a traceback, which aborted batch runs on the
+            # first empty transcript and made the manifest's own "no_content"
+            # status unreachable from the CLI.
+            print(
+                json.dumps(
+                    {"chat_id": chat_id, "status": "no_content", "applied": False},
+                    indent=2,
+                )
+            )
+            return 0
 
     result = run_merge(
         memory_home=memory_home,

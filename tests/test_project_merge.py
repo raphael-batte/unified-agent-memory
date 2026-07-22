@@ -156,8 +156,11 @@ class TestProjectMerge(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "app.md"
+            # Machine-only section: raw candidates accumulate until an agent
+            # curates. Once it has, the mechanical path stops — that boundary is
+            # covered in test_curated_preservation.
             path.write_text(
-                "## Decisions\n\n- Curated deploy policy\n\n## Recent\n\n",
+                "## Decisions\n\n- [extracted] earlier raw line\n\n## Recent\n\n",
                 encoding="utf-8",
             )
             result = pm.apply_extract_to_project(path, extract, today="2026-06-08")
@@ -165,7 +168,7 @@ class TestProjectMerge(unittest.TestCase):
             self.assertEqual(result["decisions_merged"], 1)
             self.assertIn("[extracted]", text)
             self.assertIn("home", text)
-            self.assertIn("Curated deploy policy", text)
+            self.assertIn("earlier raw line", text)
 
     def test_enforce_extracted_cap_archives_oldest(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -188,8 +191,9 @@ class TestProjectMerge(unittest.TestCase):
             self.assertIn("decision number 0", archive.read_text(encoding="utf-8"))
 
     def test_merge_at_cap_appends_then_evicts_to_archive(self) -> None:
+        # Machine-only section on purpose: a curated bullet would short-circuit
+        # the merge entirely, and this test is about cap-and-evict mechanics.
         existing = [f"[extracted] old decision {i}" for i in range(30)]
-        existing.insert(0, "[curated] Keep this policy")
         extract = {
             "workspace_slug": "app",
             "decision_candidates": [
@@ -211,7 +215,6 @@ class TestProjectMerge(unittest.TestCase):
             extracted = [b for b in merged if b.startswith("[extracted]")]
             self.assertEqual(added, 2)
             self.assertEqual(len(extracted), 30)
-            self.assertIn("[curated] Keep this policy", merged)
             self.assertTrue(
                 any("new decision alpha" in b for b in extracted),
                 "newest candidates should remain after cap",

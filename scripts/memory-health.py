@@ -176,6 +176,31 @@ def analyze_metrics(
     }
 
 
+MAX_STAGING_BACKLOG = 10
+
+
+def apply_staging_backlog_gate(
+    data: dict[str, Any],
+    *,
+    limit: int = MAX_STAGING_BACKLOG,
+) -> dict:
+    """Unmerged staging is a silent failure — let it reach the health flag.
+
+    Staging files pile up only when semantic merge stops running, which is
+    exactly when ## Decisions goes stale. The count was reported but never
+    gated, so the hub logged a clean exit while a backlog built up for weeks.
+    """
+    staged = int((data.get("hub_disk") or {}).get("staging_files") or 0)
+    data["staging_backlog"] = staged
+    data["staging_backlog_limit"] = limit
+    if staged > limit:
+        data["healthy"] = False
+        data["staging_backlog_reason"] = (
+            f"{staged} unmerged staging files (limit {limit}) — run semantic merge"
+        )
+    return data
+
+
 def enrich_with_baseline(
     memory_home: Path,
     data: dict[str, Any],
@@ -270,6 +295,8 @@ def print_report(data: dict) -> None:
             f"  Staging orphan: {orphan_rate * 100:.0f}% "
             f"({hub.get('staging_orphans', 0)}/{hub.get('staging_files', 0)})"
         )
+    if data.get("staging_backlog_reason"):
+        print(f"  ⚠ Staging:      {data['staging_backlog_reason']}")
     mark = "✓" if data.get("healthy") else "⚠"
     print(f"  {mark} {'healthy' if data.get('healthy') else 'review metrics'}")
 
@@ -290,6 +317,7 @@ def main() -> int:
     data = enrich_with_baseline(memory_home, data, update_baseline=args.update_baseline)
     data["hub_disk"] = analyze_hub_disk(memory_home)
     data["memory_home"] = str(memory_home)
+    apply_staging_backlog_gate(data)
 
     if args.json:
         print(json.dumps(data, indent=2))

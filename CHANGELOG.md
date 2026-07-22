@@ -6,6 +6,14 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.29.4] - 2026-07-22
+
+### Fixed
+
+- preserve curated hub content on mechanical distill; gate health on staging backlog
+- apply guard counts only curated bullets; empty transcript exits cleanly
+- leak check scans every text file, not an extension allowlist
+
 ## [0.29.3] - 2026-07-21
 
 ### Fixed

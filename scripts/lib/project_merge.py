@@ -24,6 +24,7 @@ from lib.novelty import (
 )
 from lib.secrets_guard import scan_file
 from lib.markdown_sections import bullets as _bullets
+from lib.markdown_sections import format_bullets as _render_bullets
 from lib.markdown_sections import parse_sections as _parse_sections
 from lib.timestamps import now_iso
 
@@ -67,7 +68,7 @@ def _join_sections(preamble: str, sections: dict[str, str]) -> str:
 
 
 def _format_bullets(items: list[str]) -> str:
-    return "\n".join(f"- {item}" for item in items if item)
+    return _render_bullets(items)
 
 
 def recent_line(extract: dict, today: str | None = None) -> str:
@@ -322,6 +323,31 @@ def _is_extracted_decision(bullet: str) -> bool:
     return bullet.strip().startswith("[extracted]")
 
 
+def _authored_text(block: str) -> str:
+    """Section text minus generated metadata lines (``_Last updated: …_``)."""
+    keep = [
+        line
+        for line in block.splitlines()
+        if line.strip() and not LAST_UPDATED.match(line.strip())
+    ]
+    return "\n".join(keep).strip()
+
+
+def _is_machine_decision(bullet: str) -> bool:
+    text = bullet.strip()
+    return text.startswith(("[extracted]", "[bootstrap]", "[auto]"))
+
+
+def has_curated_decisions(existing: list[str]) -> bool:
+    """True once an agent has written real Decisions into the file.
+
+    Raw candidates are seeds for curation, not content. Appending them next to
+    curated bullets is what silently refilled hub files with verbatim user
+    quotes, so the mechanical path stops as soon as curation has happened.
+    """
+    return any(b.strip() and not _is_machine_decision(b) for b in existing)
+
+
 _ARCHIVE_DECISIONS_HEADING = "## Decisions"
 
 
@@ -434,7 +460,9 @@ def compact_live_decisions_file(project_path: Path) -> int:
     text = project_path.read_text(encoding="utf-8", errors="replace")
     preamble, sections = _parse_sections(text)
     existing = _bullets(sections.get("Decisions", ""))
-    if not existing:
+    if not existing or has_curated_decisions(existing):
+        # Compaction exists to dedupe machine bullets. A curated section may hold
+        # ### sub-headings, which a bullets-only rewrite would drop.
         return 0
     compacted, removed = compact_live_decisions(existing)
     if removed <= 0:
@@ -496,8 +524,10 @@ def merge_extracted_decisions(
     memory_home: Path | None = None,
     slug: str | None = None,
 ) -> tuple[list[str], int]:
-    """Append novel [extracted] decisions; never remove curated bullets."""
+    """Append novel [extracted] decisions; never remove or shadow curated bullets."""
     slug = slug or str(extract.get("workspace_slug") or "project")
+    if has_curated_decisions(existing):
+        return existing, 0
     existing, _evicted = enforce_extracted_decisions_cap(
         existing,
         max_extracted=max_extracted,
@@ -606,7 +636,10 @@ def apply_extract_to_project(
     preamble, sections = _parse_sections(text)
 
     summary_bullets = extract.get("summary_bullets") or []
-    if summary_bullets and not _bullets(sections.get("Summary", "")):
+    # Any prose counts as an authored Summary — not just bullets, or a curated
+    # paragraph reads as "empty" and gets replaced by raw distill lines. The
+    # _Last updated_ stamp lands here in files with no H1, so it is not content.
+    if summary_bullets and not _authored_text(sections.get("Summary", "")):
         clean = [str(b).strip() for b in summary_bullets if str(b).strip()]
         if clean:
             sections["Summary"] = _format_bullets(clean[:5])
@@ -645,6 +678,8 @@ def apply_extract_to_project(
             decisions_added = len(seeds)
 
     decisions_now = _bullets(sections.get("Decisions", ""))
+    if has_curated_decisions(decisions_now):
+        decisions_now = []
     compacted_decisions, decisions_compacted = compact_live_decisions(decisions_now)
     if decisions_compacted:
         sections["Decisions"] = _format_bullets(compacted_decisions)

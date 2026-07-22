@@ -32,12 +32,36 @@ def parse_sections(text: str) -> tuple[str, dict[str, str]]:
 
 
 def bullets(block: str) -> list[str]:
+    """
+    Bullets of a section, keeping wrapped lines with their bullet.
+
+    A bullet starts at column 0; any indented follow-on line (including an
+    indented sub-bullet) belongs to the bullet above it. Curated hub files wrap
+    long bullets, and dropping those lines silently truncated them on rewrite.
+    Continuations are joined with a newline; ``format_bullets`` re-indents them.
+    """
     out: list[str] = []
     for line in block.splitlines():
-        m = _BULLET_RE.match(line.strip())
+        if not line.strip():
+            continue
+        m = _BULLET_RE.match(line)
         if m:
             out.append(m.group(1).strip())
+        elif out and line[:1].isspace():
+            out[-1] = f"{out[-1]}\n{line.strip()}"
     return out
+
+
+def format_bullets(items: list[str], *, indent: str = "  ") -> str:
+    """Render bullets, re-indenting continuation lines produced by ``bullets``."""
+    lines: list[str] = []
+    for item in items:
+        if not item:
+            continue
+        head, *rest = item.split("\n")
+        lines.append(f"- {head}")
+        lines.extend(f"{indent}{cont}" for cont in rest)
+    return "\n".join(lines)
 
 
 def paragraph_units(block: str, *, max_len: int = 400) -> list[str]:

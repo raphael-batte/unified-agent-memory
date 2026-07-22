@@ -72,7 +72,17 @@ SKIP_NAMES = {
     "test_check_local_leaks.py",
     "test_no_hardcoded_paths.py",
 }
-SCAN_SUFFIXES = {".py", ".md", ".mdc", ".sh", ".json", ".yml", ".yaml", ".toml", ".txt"}
+# Everything textual is scanned. An allowlist of extensions used to skip .js,
+# .html, .jsonl and extension-less scripts in silence: the same leak that fails
+# in a .md passed unnoticed in any of those, and .jsonl is the transcript format
+# a live token was once found in. Only known-binary payloads are skipped now.
+SKIP_SUFFIXES = {
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".icns", ".bmp", ".tiff",
+    ".pdf", ".zip", ".gz", ".tgz", ".bz2", ".xz", ".7z", ".rar",
+    ".mp3", ".mp4", ".mov", ".avi", ".webm", ".wav", ".ogg",
+    ".woff", ".woff2", ".ttf", ".otf", ".eot",
+    ".so", ".dylib", ".dll", ".exe", ".bin", ".o", ".a", ".class", ".pyc",
+}
 
 
 def _git(args: list[str], cwd: Path) -> str:
@@ -178,7 +188,7 @@ def _should_scan(rel: str) -> bool:
     path = Path(rel)
     if SKIP_PARTS & set(path.parts) or path.name in SKIP_NAMES:
         return False
-    return path.suffix in SCAN_SUFFIXES
+    return path.suffix.lower() not in SKIP_SUFFIXES
 
 
 def iter_worktree(repo: Path):

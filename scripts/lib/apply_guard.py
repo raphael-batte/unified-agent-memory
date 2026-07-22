@@ -7,24 +7,30 @@ from pathlib import Path
 
 from lib.chats_manifest import processed_by_id
 from lib.defaults import APPLY_REVIEW_MAX_DAYS
-from lib.project_merge import LAST_UPDATED, _bullets, _parse_sections
+from lib.project_merge import (
+    LAST_UPDATED,
+    _bullets,
+    _is_machine_decision,
+    _parse_sections,
+)
 from lib.timestamps import parse_distilled_at
 
 BOOTSTRAP_PREFIX = "[bootstrap]"
 
 
 def curated_decision_count(project_path: Path) -> int:
-    """Non-bootstrap ## Decisions bullets in project distill file."""
+    """Agent-written ## Decisions bullets in a project distill file.
+
+    Only [bootstrap] used to be excluded, so a file holding nothing but
+    [extracted] raw candidates reported them as curated and the guard blocked
+    a mechanical refresh to protect content that was never curated.
+    """
     if not project_path.is_file():
         return 0
     text = project_path.read_text(encoding="utf-8", errors="replace")
     _, sections = _parse_sections(text)
     bullets = _bullets(sections.get("Decisions", ""))
-    return sum(
-        1
-        for bullet in bullets
-        if bullet.strip() and not bullet.strip().startswith(BOOTSTRAP_PREFIX)
-    )
+    return sum(1 for b in bullets if b.strip() and not _is_machine_decision(b))
 
 
 def _last_distill_datetime(
