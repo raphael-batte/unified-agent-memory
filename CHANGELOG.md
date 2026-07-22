@@ -6,6 +6,12 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.29.5] - 2026-07-22
+
+### Fixed
+
+- search: exclude projects-backup; downweight [extracted]
+
 ## [0.29.4] - 2026-07-22
 
 ### Fixed

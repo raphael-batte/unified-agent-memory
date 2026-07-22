@@ -207,4 +207,4 @@ If you used symlink skills or global `~/.cursor/hooks.json` entries before the p
 
 Created by [raphael-batte](https://github.com/raphael-batte)
 
-**Version:** 0.29.4 — see [VERSIONING.md](VERSIONING.md)
+**Version:** 0.29.5 — see [VERSIONING.md](VERSIONING.md)

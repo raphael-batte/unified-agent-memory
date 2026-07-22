@@ -46,6 +46,12 @@ _LAYER_WEIGHTS: dict[str, float] = {
     "extract": 0.9,
 }
 _ARCHIVE_WEIGHT = 0.7
+# Mechanical [extracted] bullets are precision-filtered drafts, not curated Decisions.
+# Keep them searchable but below curated / bootstrap / auto-free prose.
+_EXTRACTED_WEIGHT = 0.4
+
+# Migration snapshots under chats/projects-backup-* must not pollute live ranking.
+_SKIP_DIR_PREFIXES = ("projects-backup",)
 
 # Project-tag ranking (hole #3): a doc's slug + Open-thread label carry the topic
 # even when the workspace/filename does not. Fold them into scoring.
@@ -119,6 +125,23 @@ def _section_weight(section: str, *, archived: bool) -> float:
     return base
 
 
+def _extracted_weight(text: str) -> float:
+    """Down-rank mechanical ``[extracted]`` bullets vs curated Decisions."""
+    stripped = text.lstrip()
+    if stripped.startswith("[extracted]"):
+        return _EXTRACTED_WEIGHT
+    return 1.0
+
+
+def _path_skipped(path: Path) -> bool:
+    """True when a path sits under a migration/backup snapshot dir."""
+    return any(
+        part.startswith(prefix)
+        for part in path.parts
+        for prefix in _SKIP_DIR_PREFIXES
+    )
+
+
 def _parse_doc_date(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -143,6 +166,8 @@ def _iter_markdown_files(memory_home: Path, sub: str) -> list[Path]:
         if not path.is_file():
             continue
         if "merge-staging" in path.parts or "map-staging" in path.parts:
+            continue
+        if _path_skipped(path):
             continue
         out.append(path)
     return out
@@ -497,7 +522,8 @@ def search_hub(
         sw = _section_weight(doc.section, archived=doc.archived)
         lw = _LAYER_WEIGHTS.get(doc.layer, 1.0)
         rb = _recency_boost(doc.date)
-        score = base * sw * lw * rb * tag_boost * literal_boost
+        ew = _extracted_weight(doc.text)
+        score = base * sw * lw * rb * tag_boost * literal_boost * ew
         drill = None
         if doc.chat_id and doc.layer in ("chats", "extract"):
             title = doc.text[:60].replace("\n", " ").strip() or "chat"

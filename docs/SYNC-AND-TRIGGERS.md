@@ -79,7 +79,7 @@ CLI: `--scan-only`, `--dry-run`, `--no-hooks`, `--days`, `--limit`.
 - **Watermark** — `manifest.json` stores `watermark_user_count` + `watermark_tail_hash`
 - **Debounce** — `lib/boundary_debounce.py` limits repeat boundary distills
 - **Long chats** — topic segmentation + importance strategy (`auto`); map-reduce fallback; semantic-merge for `[curated]` Decisions
-- **`[extracted]` cap** — `enforce_extracted_decisions_cap` in `project_merge.py`; archive searchable at 0.7× via `hub_search.py`
+- **`[extracted]` cap** — `enforce_extracted_decisions_cap` in `project_merge.py`; archive searchable at 0.7× via `hub_search.py`; `[extracted]` bullets themselves score at 0.4×; `chats/projects-backup-*` is excluded from the corpus
 
 ## Key modules
 

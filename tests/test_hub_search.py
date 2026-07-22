@@ -166,6 +166,60 @@ class TestHubSearch(unittest.TestCase):
             result = search_hub(hub, "smoke production", top=5, log_metrics=False)
             self.assertTrue(any(h["layer"] == "context" for h in result["hits"]))
 
+    def test_projects_backup_dirs_excluded_from_corpus(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp)
+            live = hub / "chats" / "projects" / "figma.md"
+            live.parent.mkdir(parents=True, exist_ok=True)
+            live.write_text(
+                "_Last updated: 2026-07-22_\n\n"
+                "## Decisions\n\n- Live figma bridge uses plugin API not REST write\n",
+                encoding="utf-8",
+            )
+            backup = (
+                hub / "chats" / "projects-backup-nextstep-20260721" / "figma.md"
+            )
+            backup.parent.mkdir(parents=True, exist_ok=True)
+            backup.write_text(
+                "_Last updated: 2026-07-20_\n\n"
+                "## Decisions\n\n"
+                "- [extracted] stale figma backup snapshot must not rank\n",
+                encoding="utf-8",
+            )
+            from lib.hub_search import build_corpus
+
+            docs, _meta = build_corpus(hub, layers={"chats"})
+            paths = [d.rel_path for d in docs]
+            self.assertTrue(any("projects/figma.md" in p for p in paths))
+            self.assertFalse(any("projects-backup" in p for p in paths))
+
+            result = search_hub(hub, "figma bridge", top=8, log_metrics=False)
+            hit_paths = [h["path"] for h in result["hits"]]
+            self.assertTrue(hit_paths)
+            self.assertFalse(any("projects-backup" in p for p in hit_paths))
+
+    def test_extracted_bullets_rank_below_curated(self) -> None:
+        phrase = "canonical shareurl from server for main_head template deploy"
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp)
+            project = hub / "chats" / "projects" / "app.md"
+            project.parent.mkdir(parents=True, exist_ok=True)
+            project.write_text(
+                "_Last updated: 2026-07-22_\n\n"
+                "## Decisions\n\n"
+                f"- [curated] {phrase}\n"
+                f"- [extracted] {phrase}\n",
+                encoding="utf-8",
+            )
+            result = search_hub(
+                hub, "canonical shareurl main_head", top=5, log_metrics=False
+            )
+            hits = result["hits"]
+            self.assertGreaterEqual(len(hits), 2)
+            curated = next(h for h in hits if "[curated]" in h["text"])
+            extracted = next(h for h in hits if "[extracted]" in h["text"])
+            self.assertGreater(curated["score"], extracted["score"])
+
 
 if __name__ == "__main__":
     unittest.main()
