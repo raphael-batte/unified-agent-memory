@@ -27,6 +27,38 @@ def _anchor_root() -> Path:
     return Path(base).expanduser() if base else Path.home()
 
 
+def _under_tmp(path: Path) -> bool:
+    import tempfile
+
+    try:
+        resolved = path.expanduser().resolve()
+    except OSError:
+        return False
+    tmp = Path(tempfile.gettempdir()).resolve()
+    return resolved == tmp or tmp in resolved.parents
+
+
+def _rejects_anchor_write(memory_home: Path) -> bool:
+    """True when writing this hub to this anchor would corrupt a real install.
+
+    A test file run on its own (without tests/run-tests.sh, which pins
+    AGENT_MEMORY_ANCHOR_HOME) points the developer's real anchor at a scratch
+    hub under $TMPDIR; every later session then distills into a directory the
+    OS deletes. Tests that mean it move the anchor root to tmp as well, so the
+    pairing — real anchor root, temp hub — is only ever the accident.
+    """
+    if _under_tmp(_anchor_root()):
+        return False
+    if not _under_tmp(memory_home):
+        return False
+    warnings.warn(
+        f"refusing to anchor {_anchor_root()} at temp hub {memory_home}; "
+        "set AGENT_MEMORY_ANCHOR_HOME to a temp dir for tests",
+        stacklevel=3,
+    )
+    return True
+
+
 def anchor_dirs() -> list[Path]:
     """Every environment's anchor directory, in resolution order."""
     root = _anchor_root()
@@ -136,6 +168,8 @@ def memory_home_from_anchor() -> Path | None:
 
 def persist_anchor(memory_home: Path) -> None:
     """Write fixed anchor — only memory_home (survives bundle updates)."""
+    if _rejects_anchor_write(memory_home):
+        return
     path = anchor_file()
     path.parent.mkdir(parents=True, exist_ok=True)
     data = load_anchor_config()
@@ -154,6 +188,8 @@ def persist_all_anchors(memory_home: Path) -> list[Path]:
     Used when adopting the shared hub: whichever environment the user opens next
     must find the same memory, not create a second one beside it.
     """
+    if _rejects_anchor_write(memory_home):
+        return []
     resolved = str(memory_home.expanduser().resolve())
     written: list[Path] = []
     for directory in anchor_dirs():

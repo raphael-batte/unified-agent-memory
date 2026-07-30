@@ -264,6 +264,45 @@ class TestMemoryConfig(unittest.TestCase):
             test_cfg = json.loads(test_anchor.read_text())
             self.assertEqual(test_cfg["memory_home"], str(test_hub.resolve()))
 
+    def test_real_anchor_refuses_temp_hub(self) -> None:
+        """Regression: a test file run standalone must not anchor $HOME at $TMPDIR.
+
+        tests/run-tests.sh pins AGENT_MEMORY_ANCHOR_HOME; a single test file run
+        on its own does not, so without this guard it rewrites the developer's
+        real anchor to a scratch hub the OS later deletes.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_hub = Path(tmp) / "hub"
+            temp_hub.mkdir()
+            fake_home = Path("/nonexistent-agent-memory-home")
+            with mock.patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("AGENT_MEMORY_ANCHOR_HOME", None)
+                with mock.patch.object(Path, "home", staticmethod(lambda: fake_home)):
+                    with warnings.catch_warnings(record=True) as caught:
+                        warnings.simplefilter("always")
+                        self.assertEqual(mc.persist_all_anchors(temp_hub), [])
+                        mc.persist_anchor(temp_hub)
+                    self.assertTrue(
+                        any("temp hub" in str(w.message) for w in caught),
+                        "refusal should warn",
+                    )
+            self.assertFalse(fake_home.exists(), "must not create a real anchor")
+
+    def test_temp_anchor_still_accepts_temp_hub(self) -> None:
+        """Tests that pin the anchor root to tmp keep working — the guard is the pair."""
+        with tempfile.TemporaryDirectory() as tmp:
+            anchor_home = Path(tmp) / "anchor-home"
+            temp_hub = Path(tmp) / "hub"
+            temp_hub.mkdir()
+            with mock.patch.dict(os.environ, _anchor_env(anchor_home), clear=False):
+                written = mc.persist_all_anchors(temp_hub)
+            self.assertEqual(len(written), len(mc.ANCHOR_RELATIVE_DIRS))
+            for path in written:
+                self.assertEqual(
+                    json.loads(path.read_text())["memory_home"],
+                    str(temp_hub.resolve()),
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

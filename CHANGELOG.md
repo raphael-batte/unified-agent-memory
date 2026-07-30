@@ -6,6 +6,12 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.29.6] - 2026-07-30
+
+### Fixed
+
+- refuse temp-hub anchor corruption; tighten leak scan word boundaries
+
 ## [0.29.5] - 2026-07-22
 
 ### Fixed

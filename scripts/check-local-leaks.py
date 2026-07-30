@@ -28,6 +28,7 @@ Findings print redacted unless --show-matches: this runs in public CI logs.
 from __future__ import annotations
 
 import argparse
+import functools
 import re
 import subprocess
 import sys
@@ -49,6 +50,42 @@ APPROVED_FICTIONAL = frozenset(
         "example",
         "example.com",
         "example.org",
+    }
+)
+
+#: Sub-tokens of a project slug that are ordinary vocabulary. `figma-frame-tools`
+#: and `sdm-Codex` must not turn `tools` or `codex` into repo-wide tripwires —
+#: they say nothing about the developer, and they appear in shipped prose.
+GENERIC_SLUG_TOKENS = frozenset(
+    {
+        "agent",
+        "app",
+        "chat",
+        "claude",
+        "codex",
+        "cursor",
+        "data",
+        "demo",
+        "flutter",
+        "hooks",
+        "local",
+        "main",
+        "memory",
+        "mobile",
+        "plugin",
+        "project",
+        "python",
+        "react",
+        "scripts",
+        "server",
+        "shared",
+        "skills",
+        "test",
+        "tests",
+        "tools",
+        "unified",
+        "utils",
+        "web",
     }
 )
 
@@ -154,7 +191,9 @@ def hub_terms(memory_home: Path | None = None, repo: Path | None = None) -> set[
         candidates = {slug.lower()}
         # `motionlogger-flutter` must also flag a bare `motionlogger`.
         candidates.update(
-            part.lower() for part in re.split(r"[-_]", slug) if len(part) >= 5
+            part.lower()
+            for part in re.split(r"[-_]", slug)
+            if len(part) >= 5 and part.lower() not in GENERIC_SLUG_TOKENS
         )
         out.update(c for c in candidates if c not in APPROVED_FICTIONAL and c not in vocab)
     return out
@@ -169,13 +208,25 @@ def identity_terms() -> set[str]:
     return out
 
 
+@functools.lru_cache(maxsize=None)
+def _term_pattern(term: str) -> re.Pattern[str]:
+    """Whole-word matcher.
+
+    Sub-tokens of a slug are ordinary English often enough — `figma-frame-tools`
+    yields `frame`, which as a bare substring hits every `framework` in the
+    docs. Boundaries keep the real leak (`frame` standing alone) and drop the
+    noise.
+    """
+    return re.compile(rf"(?<![0-9a-z]){re.escape(term)}(?![0-9a-z])")
+
+
 def scan_text(text: str, terms: set[str]) -> list[tuple[int, str, str]]:
     """Return (line_no, reason, matched_text) for every hit."""
     hits: list[tuple[int, str, str]] = []
     for lineno, line in enumerate(text.splitlines(), start=1):
         lowered = line.lower()
         for term in terms:
-            if term in lowered:
+            if _term_pattern(term).search(lowered):
                 hits.append((lineno, "local project or account name", term))
         for reason, pattern in SUSPICIOUS_SHAPES:
             found = pattern.search(line)
@@ -191,11 +242,22 @@ def _should_scan(rel: str) -> bool:
     return path.suffix.lower() not in SKIP_SUFFIXES
 
 
+def _ignored_paths(repo: Path) -> set[str]:
+    """Files git will never publish — including via the user's global ignore file."""
+    out = _git(
+        ["ls-files", "--others", "--ignored", "--exclude-standard"], repo
+    ) or ""
+    return {line for line in out.splitlines() if line}
+
+
 def iter_worktree(repo: Path):
+    ignored = _ignored_paths(repo)
     for path in repo.rglob("*"):
         if not path.is_file():
             continue
         rel = str(path.relative_to(repo))
+        if rel in ignored:
+            continue
         if _should_scan(rel):
             yield rel, path.read_text(encoding="utf-8", errors="replace")
 
