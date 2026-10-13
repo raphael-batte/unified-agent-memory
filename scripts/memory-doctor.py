@@ -117,6 +117,12 @@ def main() -> int:
         help="Rebuild [extracted] Decisions cut off mid-word (pre-0.29.7); backs up first",
     )
     parser.add_argument("--repair-extracted-dry-run", action="store_true")
+    parser.add_argument(
+        "--merge-slugs",
+        action="store_true",
+        help="Fold project files named in config.json slug_aliases into their canonical file",
+    )
+    parser.add_argument("--merge-slugs-dry-run", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -173,6 +179,41 @@ def main() -> int:
             print(f"  Backup:     {applied['backup']}")
         elif repairs:
             print("  Re-run with --repair-extracted to write (originals are backed up).")
+        return 0
+
+    if args.merge_slugs or args.merge_slugs_dry_run:
+        from lib.slug_aliases import apply_merges, load_aliases, plan_merges
+
+        plans = plan_merges(memory_home)
+        applied = apply_merges(memory_home, plans) if args.merge_slugs and plans else None
+        rows = [
+            {
+                "from": p.src,
+                "to": p.dst,
+                "added": p.added,
+                "archive": p.archive,
+                "manifest_rows": p.manifest_rows,
+                "queue_rows": p.queue_rows,
+            }
+            for p in plans
+        ]
+        if args.json:
+            print(json.dumps({"dry_run": not args.merge_slugs, "merges": rows, "applied": applied},
+                             indent=2, ensure_ascii=False))
+            return 0
+        mode = "applied" if applied else "dry run"
+        print(f"Memory Doctor — merge slugs ({mode})")
+        print(f"  Hub:      {memory_home}")
+        if not load_aliases(memory_home):
+            print('  No aliases. Add to config.json: "slug_aliases": {"old-name": "canonical-name"}')
+        for r in rows:
+            added = ", ".join(f"{k} +{v}" for k, v in r["added"].items()) or "nothing new"
+            extra = " · archive" if r["archive"] else ""
+            print(f"  {r['from']} → {r['to']}: {added} · {r['manifest_rows']} chats{extra}")
+        if applied:
+            print(f"  Backup:   {applied['backup']}")
+        elif rows:
+            print("  Re-run with --merge-slugs to write (originals are backed up).")
         return 0
 
     framework_root = resolve_plugin_root(

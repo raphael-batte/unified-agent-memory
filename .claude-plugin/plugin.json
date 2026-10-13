@@ -1,7 +1,7 @@
 {
   "name": "agent-memory",
   "description": "Persistent memory shared across agent environments: rolling Open threads forward pointer (30d, cross-hub), project distill, global context, feedback and hub search. Distills on Stop, PreCompact and SessionEnd so memory survives compaction and hard session kills. One local hub shared with Cursor; secrets redacted on distill. No cloud required.",
-  "version": "0.30.1",
+  "version": "0.31.0",
   "author": {
     "name": "raphaelbatte"
   },

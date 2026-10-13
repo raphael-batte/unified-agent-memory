@@ -6,6 +6,13 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-10-13
+
+### Added
+
+- project slug aliases (`slug_aliases` in the hub `config.json`): new distills from a renamed workspace go to the canonical project file, and routing resolves the old folder name to it
+- `memory-doctor.py --merge-slugs[-dry-run]`: fold each alias file into its canonical one (bullet sections unioned without duplicates, empty sections filled, archived decisions moved), rewrite `distilled_to` in the manifest and the curation queue; originals go to `chats/projects-backup-merge-<ts>/`
+
 ## [0.30.1] - 2026-10-13
 
 ### Changed

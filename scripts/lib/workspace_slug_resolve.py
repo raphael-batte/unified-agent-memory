@@ -38,6 +38,21 @@ def resolve_slug(
     memory_home: Path,
 ) -> tuple[str | None, str]:
     """Return (slug, reason). slug None if no distill match."""
+    from lib.slug_aliases import canonical_slug
+
+    projects = memory_home / "chats" / "projects"
+    for cand in slug_candidates(workspace):
+        canon = canonical_slug(cand, memory_home)
+        if canon != cand and (projects / f"{canon}.md").is_file():
+            return canon, "alias"
+    return _resolve_slug(workspace, memory_home=memory_home)
+
+
+def _resolve_slug(
+    workspace: Path,
+    *,
+    memory_home: Path,
+) -> tuple[str | None, str]:
     projects = memory_home / "chats" / "projects"
     if not projects.is_dir():
         return None, "no_projects_dir"

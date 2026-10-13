@@ -217,6 +217,10 @@ def run_merge(
         extract.get("workspace_slug") or workspace_slug(extract.get("workspace", "")),
         fallback="unknown",
     )
+    # A renamed workspace keeps writing to its canonical project file.
+    from lib.slug_aliases import canonical_slug
+
+    slug = safe_path_component(canonical_slug(slug, memory_home), fallback="unknown")
     safe_id = safe_path_component(chat_id, fallback="chat")
     project_rel = primary_project_rel(
         manifest,
