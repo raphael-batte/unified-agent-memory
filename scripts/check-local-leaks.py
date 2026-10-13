@@ -60,6 +60,7 @@ GENERIC_SLUG_TOKENS = frozenset(
     {
         "agent",
         "app",
+        "archive",
         "chat",
         "claude",
         "codex",
@@ -86,6 +87,8 @@ GENERIC_SLUG_TOKENS = frozenset(
         "unified",
         "utils",
         "web",
+        "work",
+        "workflows",
     }
 )
 
@@ -186,7 +189,11 @@ def hub_terms(memory_home: Path | None = None, repo: Path | None = None) -> set[
     out = set()
     for path in projects.glob("*.md"):
         slug = path.stem
-        if slug.lower() in APPROVED_FICTIONAL or len(slug) < 4:
+        if (
+            slug.lower() in APPROVED_FICTIONAL
+            or slug.lower() in GENERIC_SLUG_TOKENS
+            or len(slug) < 4
+        ):
             continue
         candidates = {slug.lower()}
         # `motionlogger-flutter` must also flag a bare `motionlogger`.

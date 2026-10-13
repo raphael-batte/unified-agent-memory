@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -16,6 +17,9 @@ sys.path.insert(0, str(SCRIPTS))
 
 from lib import boundary_hooks as bh  # noqa: E402
 from lib import routing_context as rc  # noqa: E402
+
+# Open threads roll off after 30 days — fixed dates turn these tests into a time bomb.
+TODAY = date.today().isoformat()
 
 PLUGIN_MANIFEST = REPO / ".claude-plugin" / "plugin.json"
 MARKETPLACE = REPO / ".claude-plugin" / "marketplace.json"
@@ -169,9 +173,9 @@ class TestPromptSubmitRouting(unittest.TestCase):
         projects = hub / "chats" / "projects"
         projects.mkdir(parents=True)
         (projects / "example-app.md").write_text(
-            "# example-app\n_Last updated: 2026-07-20_\n\n"
+            f"# example-app\n_Last updated: {TODAY}_\n\n"
             "## Open threads\n\n"
-            "- **[deploy]** finish staging rollout · _upd 2026-07-20_\n",
+            f"- **[deploy]** finish staging rollout · _upd {TODAY}_\n",
             encoding="utf-8",
         )
         return hub
@@ -220,8 +224,8 @@ class TestPromptSubmitRouting(unittest.TestCase):
 
             project = hub / "chats" / "projects" / "other-app.md"
             project.write_text(
-                "# other-app\n_Last updated: 2026-07-21_\n\n## Open threads\n\n"
-                "- **[api]** written by the other agent · _upd 2026-07-21_\n",
+                f"# other-app\n_Last updated: {TODAY}_\n\n## Open threads\n\n"
+                f"- **[api]** written by the other agent · _upd {TODAY}_\n",
                 encoding="utf-8",
             )
             result = bh.handle_boundary(payload, memory_home=hub)

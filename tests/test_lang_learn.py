@@ -40,6 +40,21 @@ class TestLangLearn(unittest.TestCase):
         self.assertNotIn("low-signal", flat["commitment_prefixes"])
         self.assertIn("ok then run tests", flat["commitment_prefixes"])
 
+    def test_weak_phrases_rejected(self) -> None:
+        for phrase in ("\u0443", "\u043d\u0430", "\u0434\u0430\u0439", "\u0430 \u0435\u0441\u043b\u0438", "1", "the", "\u0443 \u043d\u0430\u0441 \u0443\u0436\u0435"):
+            self.assertTrue(ll.is_weak_learned_phrase(phrase), phrase)
+        for phrase in ("\u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0438\u0441\u044c \u043d\u0430", "\u044f \u0434\u0443\u043c\u0430\u044e", "ok then run tests"):
+            self.assertFalse(ll.is_weak_learned_phrase(phrase), phrase)
+
+    def test_projection_drops_weak_phrases_from_old_files(self) -> None:
+        doc = ll._empty_doc()
+        doc["categories"]["commitment_prefixes"] = [
+            {"phrase": p, "count": 9, "distinct_chats": ["a", "b", "c"], "example_context": ""}
+            for p in ("\u043d\u0430", "\u0441", "\u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0438\u0441\u044c \u043d\u0430")
+        ]
+        flat = ll.project_lang_cues(doc, min_count=2, min_distinct=2)
+        self.assertEqual(flat["commitment_prefixes"], ["\u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0438\u0441\u044c \u043d\u0430"])
+
     def test_mine_idempotent_by_chat_id(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)

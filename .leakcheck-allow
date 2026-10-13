@@ -2,6 +2,7 @@
 # Never add a client, product, or machine name here — that is the data this check exists to stop.
 figma
 flutter
+grafana  # public service; secrets_guard names its token prefixes (glsa_, glc_)
 
 # Former names of this repo. They stay in legacy on-disk paths that existing
 # installs still read, so the checker must not treat them as personal data.

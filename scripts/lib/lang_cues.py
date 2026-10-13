@@ -255,10 +255,11 @@ def build_line_patterns(cues: dict[str, list[str]]) -> list[re.Pattern[str]]:
 
 def build_commitment_pattern(cues: dict[str, list[str]]) -> re.Pattern[str]:
     en = [
-        r"ok(?:ay)?\s*,?\s*(?:then\s+)?",
-        r"(?:let's|lets)\s+(?:do|start)\s+",
-        r"go\s+with\s+",
+        r"ok(?:ay)?(?:\s*,?\s*then)?",
+        r"(?:let's|lets)\s+(?:do|start)",
+        r"go\s+with",
     ]
-    extra = [re.escape(p) + r"\s*,?\s*" for p in cues.get("commitment_prefixes") or []]
+    extra = [re.escape(p) for p in cues.get("commitment_prefixes") or [] if p]
     body = "|".join(en + extra)
-    return re.compile(rf"(?:^|\b)(?:{body})\s*(.+)", re.I | re.S)
+    # Whole words only on both sides: a prefix "na" must not fire inside "nado".
+    return re.compile(rf"(?<!\w)(?:{body})(?!\w)\s*,?\s*(.+)", re.I | re.S)

@@ -36,7 +36,7 @@ class TestTranscriptCursor(unittest.TestCase):
         self.assertNotRegex(injected, r"[^A-Za-z0-9._-]")
         self.assertEqual(tc.safe_path_component(""), "unknown")
         # legitimate slugs pass through unchanged
-        self.assertEqual(tc.safe_path_component("irm-vision-demo"), "irm-vision-demo")
+        self.assertEqual(tc.safe_path_component("beta-app-demo"), "beta-app-demo")
 
     def test_workspace_slug_is_safe(self) -> None:
         self.assertEqual(tc.workspace_slug("Users-me-Work-irm"), "irm")

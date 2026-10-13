@@ -173,7 +173,7 @@ class TestHubSearch(unittest.TestCase):
             live.parent.mkdir(parents=True, exist_ok=True)
             live.write_text(
                 "_Last updated: 2026-07-22_\n\n"
-                "## Decisions\n\n- Live figma bridge uses plugin API not REST write\n",
+                "## Decisions\n\n- Live figma sync uses plugin API not REST write\n",
                 encoding="utf-8",
             )
             backup = (
@@ -193,7 +193,7 @@ class TestHubSearch(unittest.TestCase):
             self.assertTrue(any("projects/figma.md" in p for p in paths))
             self.assertFalse(any("projects-backup" in p for p in paths))
 
-            result = search_hub(hub, "figma bridge", top=8, log_metrics=False)
+            result = search_hub(hub, "figma sync", top=8, log_metrics=False)
             hit_paths = [h["path"] for h in result["hits"]]
             self.assertTrue(hit_paths)
             self.assertFalse(any("projects-backup" in p for p in hit_paths))

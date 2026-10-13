@@ -6,6 +6,19 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.29.7] - 2026-10-13
+
+### Fixed
+
+- learned commitment cues matched mid-word and cut the head off Decisions (a learned one-letter prefix fired inside the first word and kept only the rest): cue regex now needs whole words on both sides; one-letter, function-word and digit-only phrases are rejected when mining and when projecting older `lang_learned.json`
+- `!cmd` shell turns (`<bash-input>`/`<bash-stdout>`) were distilled as user prompts and became `[auto]` threads
+- routing tests used fixed thread dates and broke once they left the 30-day window
+- test fixtures carried real project names; generic slug tokens (`archive`, `workflows`, `work`) no longer trip the leak scan
+
+### Added
+
+- `memory-doctor.py --repair-extracted[-dry-run]`: rebuild only the `[extracted]` bullets whose text appears in its source message only cut off near the start (mid-word, or after nothing but function words); rebuilds them with the fixed extractor or drops ones it no longer keeps; originals go to `chats/projects-backup-repair-<ts>/`
+
 ## [0.29.6] - 2026-07-30
 
 ### Fixed

@@ -8,7 +8,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from lib.defaults import DOMAIN_STOPWORDS, GENERIC_MESSAGE_START
+from lib.defaults import (
+    DOMAIN_STOPWORDS,
+    GENERIC_MESSAGE_START,
+    LEARN_FUNCTION_WORDS,
+    LEARN_MIN_PHRASE_CHARS,
+)
 from lib.distill_metrics import append_metric
 from lib.lang_actionability import is_generic_only, is_pointer_actionable
 from lib.lang_cues import clear_lang_cue_cache, load_lang_cues
@@ -123,7 +128,8 @@ def project_lang_cues(
             if not isinstance(row, dict):
                 continue
             phrase = str(row.get("phrase") or "").strip()
-            if not phrase:
+            # Files mined before the filter existed still hold weak phrases.
+            if not phrase or is_weak_learned_phrase(phrase):
                 continue
             count = int(row.get("count") or 0)
             chats = row.get("distinct_chats") or []
@@ -172,9 +178,25 @@ def _start_token_phrases(text: str, *, max_tokens: int = MAX_PREFIX_TOKENS) -> l
     return phrases
 
 
+def is_weak_learned_phrase(phrase: str) -> bool:
+    """Too short, or nothing but function words / fillers / digits — never a cue."""
+    low = phrase.lower().strip()
+    if len(low) < LEARN_MIN_PHRASE_CHARS:
+        return True
+    tokens = _TOKEN_RE.findall(low)
+    if not tokens:
+        return True
+    return all(
+        tok.isdigit() or tok in LEARN_FUNCTION_WORDS or tok in GENERIC_MESSAGE_START
+        for tok in tokens
+    )
+
+
 def _is_noise_phrase(phrase: str, *, template_phrases: set[str]) -> bool:
     low = phrase.lower().strip()
     if not low or len(low) > 64:
+        return True
+    if is_weak_learned_phrase(low):
         return True
     if low in GENERIC_MESSAGE_START:
         return True

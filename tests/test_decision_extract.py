@@ -16,7 +16,7 @@ class TestDecisionExtract(unittest.TestCase):
     def test_commitment_cue_scanned_from_all_messages(self) -> None:
         msgs = ["noise"] * 50
         msgs.append(
-            "okay then the folder is named home not landing like grafana products"
+            "okay then the folder is named home not landing like acme products"
         )
         out, stats = extract_decision_candidates(msgs, max_items=6)
         self.assertGreaterEqual(len(out), 1)
@@ -45,7 +45,7 @@ class TestDecisionExtract(unittest.TestCase):
 
     def test_rejects_press_release_with_late_cue(self) -> None:
         msgs = [
-            "How about IRM future? Press Release: Grafana Labs announces "
+            "How about Acme future? Press Release: Acme Labs announces "
             "okay then home folder is correct"
         ]
         out, stats = extract_decision_candidates(msgs, max_items=6)

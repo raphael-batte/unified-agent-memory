@@ -111,6 +111,12 @@ def main() -> int:
         action="store_true",
         help="Rebuild chats/manifest.json from extracts + project Recent links",
     )
+    parser.add_argument(
+        "--repair-extracted",
+        action="store_true",
+        help="Rebuild [extracted] Decisions cut off mid-word (pre-0.29.7); backs up first",
+    )
+    parser.add_argument("--repair-extracted-dry-run", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
@@ -136,6 +142,37 @@ def main() -> int:
                 f"(extracts={stats.get('from_extracts', 0)}, "
                 f"recent={stats.get('from_recent', 0)})"
             )
+        return 0
+
+    if args.repair_extracted or args.repair_extracted_dry_run:
+        from lib.extracted_repair import apply_repairs, find_repairs
+
+        repairs, stats = find_repairs(memory_home)
+        applied = None
+        if args.repair_extracted and repairs:
+            applied = apply_repairs(memory_home, repairs)
+        if args.json:
+            print(json.dumps({
+                "memory_home": str(memory_home),
+                "dry_run": not args.repair_extracted,
+                "stats": stats,
+                "applied": applied,
+                "repairs": [
+                    {"file": str(r.path.relative_to(memory_home)), "old": r.old, "new": r.new}
+                    for r in repairs
+                ],
+            }, indent=2, ensure_ascii=False))
+            return 0
+        mode = "applied" if applied else "dry run"
+        print(f"Memory Doctor — repair [extracted] ({mode})")
+        print(f"  Hub:        {memory_home}")
+        print(f"  Bullets:    {stats['bullets']} · untraced {stats['untraced']} (left as is)")
+        print(f"  Truncated:  {stats['truncated']} → rebuilt {stats['rebuilt']} · dropped {stats['dropped']}")
+        if applied:
+            print(f"  Files:      {applied['files']} rewritten")
+            print(f"  Backup:     {applied['backup']}")
+        elif repairs:
+            print("  Re-run with --repair-extracted to write (originals are backed up).")
         return 0
 
     framework_root = resolve_plugin_root(

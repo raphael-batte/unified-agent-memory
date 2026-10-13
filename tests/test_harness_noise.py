@@ -76,6 +76,13 @@ class TestHarnessTagsStripped(unittest.TestCase):
         )
         self.assertEqual(strip_system_blocks(text), "")
 
+    def test_shell_turn_blocks_removed(self) -> None:
+        text = (
+            "<bash-input>python3 scripts/memory-doctor.py --repair-extracted</bash-input>"
+            "<bash-stdout>Memory Doctor — repair (applied)</bash-stdout><bash-stderr></bash-stderr>"
+        )
+        self.assertEqual(strip_system_blocks(text), "")
+
 
 class TestProviderTokensRedacted(unittest.TestCase):
     def test_anthropic_key(self) -> None:

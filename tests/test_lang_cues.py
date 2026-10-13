@@ -48,6 +48,25 @@ class TestLangCues(unittest.TestCase):
             pat = lc.build_commitment_pattern(cues)
             self.assertIsNotNone(pat.search("custom-prefix-go deploy the staging stack"))
 
+    def test_commitment_prefix_matches_whole_words_only(self) -> None:
+        # A one-letter prefix used to fire mid-word and cut the head off the text.
+        pat = lc.build_commitment_pattern({"commitment_prefixes": ["\u043d\u0430", "\u0441", "\u0434\u0430"]})
+        for text in (
+            "\u043d\u0430\u0434\u043e \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0445\u0435\u0440\u0442\u0446 \u043f\u0440\u043e\u0434 \u0432 \u0438\u043d\u0444\u0440\u0443",
+            "\u0441\u0434\u0435\u043b\u0430\u043b 3 \u043a\u043e\u043c\u043c\u0438\u0442\u0430 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0445",
+            "\u0434\u0430\u0432\u0430\u0439 \u0441\u0434\u0435\u043b\u0430\u0435\u043c \u0447\u0442\u043e \u043c\u043e\u0436\u043d\u043e \u0432 \u043a\u043e\u043d\u0444\u0438\u0433\u0435",
+        ):
+            self.assertIsNone(pat.search(text), text)
+        hit = pat.search("\u0434\u0430, \u0441\u0442\u0430\u0432\u044c \u043b\u043e\u0433\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435")
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit.group(1), "\u0441\u0442\u0430\u0432\u044c \u043b\u043e\u0433\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435")
+
+    def test_commitment_en_prefixes_keep_tail(self) -> None:
+        pat = lc.build_commitment_pattern({})
+        self.assertEqual(pat.search("ok then run the tests").group(1), "run the tests")
+        self.assertEqual(pat.search("okay, ship it").group(1), "ship it")
+        self.assertIsNone(pat.search("the token expired"))
+
     def test_invalid_hub_lang_logs_metric(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)
