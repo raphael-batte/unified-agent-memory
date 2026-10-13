@@ -6,6 +6,17 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-10-13
+
+### Added
+
+- pointer effect measurement (`lib/pointer_effect.py`, `scripts/pointer-effect.py`): record what the agent was shown (first Claude injection per session; Open-threads snapshots for Cursor, taken on every cron pass and after every distill), then score each chat once from its opening user messages per thread (`followed` / `partial` / `new_topic`), with a generic-start flag and memory-miss cues (`memory_miss_cues` in `templates/lang/`)
+- `memory-status` / `memory-health` report a 30-day pointer effect: followed rate, curated vs `[auto]` threads, per environment
+
+### Changed
+
+- `sessionStart` no longer logs `pointer_feedback`: it scored before the user had typed anything, so every row was `unmeasured`
+
 ## [0.29.7] - 2026-10-13
 
 ### Fixed

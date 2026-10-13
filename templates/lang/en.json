@@ -50,5 +50,15 @@
     "bash",
     "device qa",
     "./scripts/"
+  ],
+  "memory_miss_cues": [
+    "i already told you",
+    "as i said",
+    "we already discussed",
+    "we already decided",
+    "you forgot",
+    "don't you remember",
+    "like i said",
+    "as discussed before"
   ]
 }

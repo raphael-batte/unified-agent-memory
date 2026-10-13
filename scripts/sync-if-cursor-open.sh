@@ -92,6 +92,13 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
 fi
 trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
 
+# Snapshot what Cursor's agent can see and score chats that are due — cheap,
+# and needed even when there is nothing new to distill.
+if [[ "$DRY" -eq 0 ]]; then
+  python3 "$FRAMEWORK/scripts/pointer-effect.py" --memory-home "$MEMORY_HOME" --cron \
+    >>"$LOG" 2>&1 || log "pointer-effect: failed (non-fatal)"
+fi
+
 pending="$(pending_count)"
 if [[ "$pending" -eq 0 ]]; then
   log "skip: no pending chats (days=$DAYS)"

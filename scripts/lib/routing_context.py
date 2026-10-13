@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from lib.hub_lock import write_json_atomic
-from lib.open_threads import collect_open_threads
+from lib.open_threads import OpenThread, collect_open_threads
 from lib.workspace_slug_resolve import resolve_slug
 
 #: Do not re-inject the pointer more often than this within one session.
@@ -29,19 +29,30 @@ def _state_path(memory_home: Path) -> Path:
     return memory_home / ".state" / _STATE_NAME
 
 
+def shown_open_threads(
+    memory_home: Path,
+    workspace: Path | None = None,
+    *,
+    days: int = 30,
+) -> list[OpenThread]:
+    """Threads in injection order: current workspace first, then newest."""
+    slug = None
+    if workspace is not None:
+        slug, _reason = resolve_slug(workspace, memory_home=memory_home)
+    return collect_open_threads(memory_home, days=days, priority_slug=slug)
+
+
 def render_open_threads(
     memory_home: Path,
     workspace: Path | None = None,
     *,
     days: int = 30,
     max_threads: int = MAX_THREADS,
+    threads: list[OpenThread] | None = None,
 ) -> str | None:
     """Compact Open threads block, or None when there is nothing to say."""
-    slug = None
-    if workspace is not None:
-        slug, _reason = resolve_slug(workspace, memory_home=memory_home)
-
-    threads = collect_open_threads(memory_home, days=days, priority_slug=slug)
+    if threads is None:
+        threads = shown_open_threads(memory_home, workspace, days=days)
     if not threads:
         return None
 

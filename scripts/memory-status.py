@@ -415,6 +415,20 @@ def print_dashboard(data: dict) -> None:
                     f"  Curated:      {curated * 100:.0f}% of projects · "
                     f"{hub.get('threads_auto', 0)} [auto] draft(s) awaiting review"
                 )
+        effect = mh.get("pointer_effect") or {}
+        if effect.get("sessions"):
+            def pct(v):
+                return "—" if v is None else f"{v * 100:.0f}%"
+
+            print(
+                f"  Pointer effect (30d, n={effect['sessions']}): "
+                f"followed {pct(effect.get('followed_rate'))} · "
+                f"new topic {pct(effect.get('new_topic_rate'))} · "
+                f"curated {pct(effect.get('curated_followed_rate'))} vs "
+                f"[auto] {pct(effect.get('auto_followed_rate'))}"
+            )
+        else:
+            print("  Pointer effect: no scored sessions yet")
         deg = mh.get("degradation") or {}
         if deg.get("degraded"):
             print(f"  ⚠ {deg.get('degradation_reason')}")

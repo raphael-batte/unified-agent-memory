@@ -23,6 +23,10 @@ from lib.health_baseline import (  # noqa: E402
 )
 from lib.hub_health import analyze_hub_disk  # noqa: E402
 from lib.memory_config import resolve_memory_home  # noqa: E402
+from lib.pointer_effect import summarize as summarize_pointer_effect  # noqa: E402
+
+#: Pointer outcomes accrue a few per day; a week is too thin to compare.
+POINTER_EFFECT_DAYS = 30
 
 
 def _parse_ts(value: str | None) -> datetime | None:
@@ -134,7 +138,18 @@ def analyze_metrics(
             f"boundary telemetry sparse ({boundary_events} vs {session_starts} sessions)"
         )
 
+    effect_cutoff = datetime.now() - timedelta(days=POINTER_EFFECT_DAYS)
+    pointer_effect = summarize_pointer_effect(
+        [
+            r
+            for r in rows
+            if r.get("event") == "pointer_outcome"
+            and (_parse_ts(r.get("ts")) or effect_cutoff) >= effect_cutoff
+        ]
+    )
+
     return {
+        "pointer_effect": pointer_effect,
         "window_days": days,
         "events_total": len(recent),
         "distilled": status_counts.get("distilled", 0),

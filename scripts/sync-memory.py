@@ -197,6 +197,14 @@ def run_sync(
             else:
                 report["distills_skipped"] += 1
     report["distill_details"] = distill_details
+    if not dry_run and report["distills"]:
+        # Distill may have rewritten Open threads; snapshot the new state.
+        from lib.pointer_effect import record_snapshot
+
+        try:
+            record_snapshot(memory_home)
+        except Exception:
+            pass
 
     manifest = load_manifest(memory_home / "chats" / "manifest.json")
     if not dry_run:

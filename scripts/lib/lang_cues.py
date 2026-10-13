@@ -24,6 +24,7 @@ _LANG_KEYS = (
     "correction_cues",
     "action_verbs",
     "user_action_verbs",
+    "memory_miss_cues",
 )
 
 _CACHE: dict[str, dict[str, list[str]]] = {}

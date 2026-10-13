@@ -34,7 +34,6 @@ from lib.pending_chats import (  # noqa: E402
     slugs_from_workspace_roots,
 )
 from lib.live_distill import run_live_distill, should_live_distill  # noqa: E402
-from lib.pointer_feedback import log_session_start_pointer_feedback  # noqa: E402
 from lib.transcript import (  # noqa: E402
     TranscriptEmptyError,
     TranscriptSchemaError,
@@ -402,7 +401,12 @@ def _prompt_submit_context(
     memory_home: Path,
 ) -> dict[str, Any]:
     """Open threads for a prompt-submit event, debounced per session."""
-    from lib.routing_context import record_injection, render_open_threads, should_inject
+    from lib.routing_context import (
+        record_injection,
+        render_open_threads,
+        should_inject,
+        shown_open_threads,
+    )
 
     session_id = str(payload.get("session_id") or chat_id_from_payload(payload) or "")
     if session_id and not should_inject(memory_home, session_id):
@@ -411,7 +415,8 @@ def _prompt_submit_context(
     roots = workspace_roots(payload)
     workspace = Path(roots[0]).expanduser() if roots else None
     try:
-        message = render_open_threads(memory_home, workspace)
+        threads = shown_open_threads(memory_home, workspace)
+        message = render_open_threads(memory_home, workspace, threads=threads)
     except OSError:
         return {"status": "skipped", "reason": "hub_unreadable"}
 
@@ -423,7 +428,47 @@ def _prompt_submit_context(
             record_injection(memory_home, session_id)
         except OSError:
             pass
+        _measure(
+            "record_shown",
+            memory_home,
+            session_id,
+            threads,
+            env=resolve_env(payload).name,
+        )
     return {"status": "injected", "user_message": message}
+
+
+def _measure(fn_name: str, *args: Any, **kwargs: Any) -> Any:
+    """Pointer measurement must never break a hook."""
+    from lib import pointer_effect
+
+    try:
+        return getattr(pointer_effect, fn_name)(*args, **kwargs)
+    except Exception:
+        return None
+
+
+def _evaluate_pointer(
+    payload: dict[str, Any],
+    *,
+    memory_home: Path,
+    projects_root: Path | None,
+    final: bool,
+) -> dict[str, Any] | None:
+    jsonl = resolve_transcript_jsonl(
+        payload, memory_home=memory_home, projects_root=projects_root
+    )
+    if jsonl is None:
+        return None
+    slugs = sorted(slugs_from_workspace_roots(workspace_roots(payload)))
+    return _measure(
+        "evaluate_chat",
+        memory_home,
+        jsonl,
+        env=resolve_env(payload).name,
+        final=final,
+        workspace_slug=slugs[0] if slugs else None,
+    )
 
 
 def _run_live_distill_for(
@@ -586,7 +631,6 @@ def handle_session_start(
         result["catchup"] = {"status": "skipped", "reason": "first_run_pending"}
         return result
 
-    slugs = slugs_from_workspace_roots(workspace_roots(payload))
     catchup = run_session_start_catchup(
         payload, memory_home=memory_home, projects_root=projects_root
     )
@@ -596,15 +640,8 @@ def handle_session_start(
         payload, memory_home=memory_home, projects_root=projects_root
     )
 
-    try:
-        result["pointer_feedback"] = log_session_start_pointer_feedback(
-            memory_home,
-            slugs,
-            payload=payload,
-            projects_root=projects_root,
-        )
-    except OSError:
-        result["pointer_feedback"] = []
+    # What the agent can see from here on; Cursor chats are scored against these.
+    _measure("record_snapshot", memory_home)
 
     msg = session_start_user_message(memory_home, workspace_roots(payload))
     if msg:
@@ -662,6 +699,9 @@ def handle_boundary(
             payload, memory_home=memory_home, projects_root=projects_root
         )
         result["status"] = result["live_distill"].get("status", "ok")
+        result["pointer_outcome"] = _evaluate_pointer(
+            payload, memory_home=memory_home, projects_root=projects_root, final=False
+        )
         return result
 
     if event not in BOUNDARY_EVENTS:
@@ -682,6 +722,11 @@ def handle_boundary(
         payload, memory_home=memory_home, projects_root=projects_root
     )
     result["distill"] = distill
+    result["pointer_outcome"] = _evaluate_pointer(
+        payload, memory_home=memory_home, projects_root=projects_root, final=True
+    )
+    if distill.get("status") == "distilled":
+        _measure("record_snapshot", memory_home)
 
     if event == "sessionEnd" and distill.get("status") == "distilled":
         apply_result = distill.get("apply_result") or {}
