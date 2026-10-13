@@ -63,7 +63,7 @@ Both writers take the same `mkdir` lock in the hub and write files atomically. I
 python3 scripts/memory-routing-hint.py --json .
 ```
 
-Distill may write **`[auto]`** draft threads from the tail topic segment. **Treat these as drafts, not as a pointer you can trust** — they are a mechanical guess at where the session was heading, and on a busy hub they can outnumber the curated ones. `memory-status` reports the curated share so you can see the ratio rather than assume it. Curate with `memory-pointer.py add-thread` or the semantic-merge skill; **`[auto]` never overwrites curated** threads, and session start lists the drafts waiting for review.
+Distill may write **`[auto]`** draft threads from the tail topic segment. **Treat these as drafts, not as a pointer you can trust** — they are a mechanical guess at where the session was heading, and on a busy hub they can outnumber the curated ones. `memory-status` reports the curated share so you can see the ratio rather than assume it. Curate with `memory-pointer.py add-thread` or the semantic-merge skill; **`[auto]` never overwrites curated** threads, and session start lists the drafts waiting for review. A project keeps at most one `[auto]` draft (the latest session's direction), drafts are not written for chats under three messages, and the pointer stops showing a draft after 14 days — curated threads stay for the full window.
 
 **Search past decisions** without a database: `memory-search.py` scores hub bullets — including evicted `[extracted]` in `chats/archive/*-decisions.md` (lower weight than active `projects/`) — plus optional extract JSON with `--deep` (BM25-lite + synonym expansion from `templates/lang/`).
 
@@ -207,4 +207,4 @@ If you used symlink skills or global `~/.cursor/hooks.json` entries before the p
 
 Created by [raphael-batte](https://github.com/raphael-batte)
 
-**Version:** 0.30.0 — see [VERSIONING.md](VERSIONING.md)
+**Version:** 0.30.1 — see [VERSIONING.md](VERSIONING.md)

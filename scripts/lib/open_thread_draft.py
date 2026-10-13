@@ -5,7 +5,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from lib.defaults import DECISION_JUNK_MIN_LEN
+from lib.defaults import (
+    AUTO_THREAD_MIN_USER_MESSAGES,
+    AUTO_THREADS_PER_PROJECT,
+    DECISION_JUNK_MIN_LEN,
+    GENERIC_MESSAGE_START,
+    LEARN_FUNCTION_WORDS,
+)
 from lib.markdown_sections import bullets as _bullets
 from lib.markdown_sections import parse_sections as _parse_sections
 from lib.novelty import is_decision_junk
@@ -21,12 +27,21 @@ from lib.secrets_guard import scan_file
 from lib.transcript_cursor import safe_path_component
 
 WORK_PATH_RE = re.compile(
-    r"(?:~/" + "Work/|(?:^|\s)work/)([a-zA-Z0-9][a-zA-Z0-9_\-/]*)",
+    r"(?:~/" + r"Work/|(?:^|\s)work/)([a-zA-Z0-9][a-zA-Z0-9_\-/]*)",
     re.I | re.M,
 )
 LABEL_SLUG_RE = re.compile(r"[^\w\-]+", re.UNICODE)
 OPEN_THREAD_DRAFT_MAX_TEXT = 200
 OPEN_THREAD_DRAFT_MAX_LABEL = 24
+#: A lone folder like work/archive names a place, not a direction.
+_GENERIC_DIRS = frozenset(
+    {"work", "www", "src", "lib", "archive", "tmp", "temp", "downloads", "desktop",
+     "backup", "backups", "old", "new", "test", "tests", "docs"}
+)
+_TERM_RE = re.compile(r"[^\W\d_][\w\-]{3,}", re.UNICODE)
+_LABEL_TERMS = 2
+#: URLs and paths carry hosts and usernames, not the topic.
+_PATHISH_RE = re.compile(r"\S*[/\\@]\S*")
 
 
 def is_open_thread_draft_junk(text: str) -> bool:
@@ -55,7 +70,7 @@ def _label_from_work_path(message: str) -> str | None:
         parts = [
             p
             for p in re.split(r"[/\\]", raw)
-            if p and p.lower() not in {"work", "www", "src", "lib"}
+            if p and p.lower() not in _GENERIC_DIRS
         ]
         if not parts:
             continue
@@ -69,23 +84,68 @@ def _label_from_work_path(message: str) -> str | None:
     return None
 
 
-def infer_direction_label(extract: dict, segment: dict | None) -> str | None:
-    """Path in messages first, then tail segment preview, then workspace slug."""
-    for msg in reversed(extract.get("user_messages") or []):
-        if not isinstance(msg, str):
-            continue
+def _segment_messages(extract: dict, segment: dict | None) -> list[str]:
+    msgs = [m for m in extract.get("user_messages") or [] if isinstance(m, str)]
+    if segment and "start" in segment and "end" in segment:
+        sliced = msgs[int(segment["start"]) : int(segment["end"])]
+        if sliced:
+            return sliced
+    if segment and segment.get("preview"):
+        return [str(segment["preview"])]
+    return msgs[-3:]
+
+
+def _label_from_terms(texts: list[str], memory_home: Path | None = None) -> str | None:
+    """Most repeated content words of the segment — not its first words."""
+    from lib.lang_cues import load_lang_cues
+
+    cues = load_lang_cues(memory_home=memory_home)
+    skip = set(LEARN_FUNCTION_WORDS) | set(GENERIC_MESSAGE_START)
+    for key in ("action_verbs", "user_action_verbs", "commitment_prefixes", "correction_cues"):
+        skip.update(w.lower() for w in cues.get(key) or [])
+    counts: dict[str, int] = {}
+    first: dict[str, int] = {}
+    pos = 0
+    for text in texts:
+        for tok in _TERM_RE.findall(_PATHISH_RE.sub(" ", text.lower())):
+            if tok in skip or "_" in tok or any(c.isdigit() for c in tok):
+                continue
+            counts[tok] = counts.get(tok, 0) + 1
+            first.setdefault(tok, pos)
+            pos += 1
+    if not counts:
+        return None
+    ranked = sorted(counts, key=lambda t: (-counts[t], -len(t), first[t]))
+    label = _slugify_label("-".join(ranked[:_LABEL_TERMS]))
+    if label and not is_open_thread_label_junk(label):
+        return label
+    return None
+
+
+def infer_direction_label(
+    extract: dict,
+    segment: dict | None,
+    *,
+    memory_home: Path | None = None,
+) -> str | None:
+    """Project path in the tail segment, then its key terms, then workspace slug."""
+    seg_msgs = _segment_messages(extract, segment)
+    bounded = bool(segment) and "start" in segment and "end" in segment
+    path_msgs = seg_msgs if bounded else [
+        m for m in extract.get("user_messages") or [] if isinstance(m, str)
+    ]
+    for msg in reversed(path_msgs):
         from_path = _label_from_work_path(msg)
         if from_path:
             return from_path
 
-    preview = ""
-    if segment:
-        preview = str(segment.get("preview") or "")
-    if not preview:
-        preview = str(extract.get("first_query") or "")
-    slug = _slugify_label(preview)
-    if slug and not is_open_thread_label_junk(slug):
-        return slug
+    texts = list(seg_msgs)
+    first_query = str(extract.get("first_query") or "")
+    if segment is None and first_query and first_query not in texts:
+        texts.append(first_query)
+    from_terms = _label_from_terms(texts, memory_home)
+    if from_terms:
+        return from_terms
 
     fallback = safe_path_component(
         str(extract.get("workspace_slug") or ""),
@@ -147,8 +207,17 @@ def draft_open_threads_after_apply(
         result["skip_reason"] = "no_project_file"
         return result
 
+    user_count = int(
+        extract.get("user_message_count") or len(extract.get("user_messages") or [])
+    )
+    if user_count < AUTO_THREAD_MIN_USER_MESSAGES:
+        result["skip_reason"] = "one_off_chat"
+        return result
+
     segment = tail_topic_segment(extract)
-    label = infer_direction_label(extract, segment)
+    # chats/projects/<slug>.md -> hub root, for the hub's learned verb lists
+    hub = project_path.parent.parent.parent
+    label = infer_direction_label(extract, segment, memory_home=hub)
     text = draft_text_from_extract(extract, segment)
     updated = str(extract.get("date") or today or _today())[:10]
 
@@ -169,6 +238,7 @@ def draft_open_threads_after_apply(
         updated=updated,
         tier=TIER_AUTO,
         cap=MAX_OPEN_THREADS,
+        max_auto=AUTO_THREADS_PER_PROJECT,
     )
     if not changed:
         result["skip_reason"] = skip_reason or "unchanged"

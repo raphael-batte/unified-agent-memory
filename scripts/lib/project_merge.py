@@ -176,12 +176,14 @@ def upsert_open_thread_tiered(
     updated: str,
     tier: str = TIER_AUTO,
     cap: int = MAX_OPEN_THREADS,
+    max_auto: int | None = None,
 ) -> tuple[list[str], bool, str]:
     """
     Tier-aware upsert for Open threads.
 
     Returns ``(bullets, changed, skip_reason)``.
     ``[auto]`` never overwrites curated for the same label; curated cap blocks new auto.
+    ``max_auto`` bounds how many ``[auto]`` drafts the file keeps (oldest go first).
     """
     label = label.strip()
     body, _ = _strip_stamp(text.strip())
@@ -211,6 +213,11 @@ def upsert_open_thread_tiered(
         if existing_label and existing_label.lower() == label_key:
             continue
         kept.append(stripped)
+
+    if tier == TIER_AUTO and max_auto is not None and max_auto > 0:
+        auto_idx = [i for i, b in enumerate(kept) if open_thread_tier(b) == TIER_AUTO]
+        drop = set(auto_idx[: max(0, len(auto_idx) - (max_auto - 1))])
+        kept = [b for i, b in enumerate(kept) if i not in drop]
 
     if tier == TIER_AUTO and len(kept) + 1 > cap:
         kept = [b for b in kept if open_thread_tier(b) != TIER_AUTO]

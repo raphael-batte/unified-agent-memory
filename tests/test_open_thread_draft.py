@@ -76,15 +76,32 @@ class TestDirectionLabel(unittest.TestCase):
         label = otd.infer_direction_label(extract, {"preview": "generic preview"})
         self.assertEqual(label, "acme-widget-v2")
 
-    def test_preview_slug_fallback(self) -> None:
+    def test_term_label_not_first_words(self) -> None:
         extract = {
-            "user_messages": ["short"],
+            "user_messages": [
+                "please look at the footer accordion again",
+                "the accordion still jumps on mobile",
+            ],
             "workspace_slug": "alpha-hub",
-            "first_query": "deploy footer accordion on mobile test server",
+            "first_query": "please look at the footer accordion again",
         }
         label = otd.infer_direction_label(extract, None)
-        self.assertTrue(label)
-        self.assertIn("deploy", label)
+        self.assertTrue(label.startswith("accordion"), label)
+        self.assertNotIn("please", label)
+
+    def test_lone_generic_folder_is_not_a_label(self) -> None:
+        extract = {
+            "user_messages": ["moved the old ssh keys into work/archive for the gateway"],
+            "workspace_slug": "alpha-hub",
+        }
+        self.assertNotEqual(otd.infer_direction_label(extract, None), "archive")
+
+    def test_paths_do_not_leak_into_term_labels(self) -> None:
+        extract = {
+            "user_messages": ["check /Users/example-user/Downloads/report.csv rendering rendering"],
+            "workspace_slug": "alpha-hub",
+        }
+        self.assertNotIn("example", otd.infer_direction_label(extract, None))
 
 
 class TestDraftPipeline(unittest.TestCase):
@@ -135,7 +152,9 @@ class TestDraftPipeline(unittest.TestCase):
         extract = {
             "date": "2026-07-12",
             "user_messages": [
-                "work/acme/widget-v2 - footer deploy smoke pending on test server"
+                "open the widget repo",
+                "run the smoke checks",
+                "work/acme/widget-v2 - footer deploy smoke pending on test server",
             ],
             "first_query": "work/acme/widget-v2",
             "workspace_slug": "alpha-hub",
@@ -143,8 +162,8 @@ class TestDraftPipeline(unittest.TestCase):
                 {
                     "segment": 1,
                     "preview": "work/acme/widget-v2 - footer deploy smoke pending on test",
-                    "start": 0,
-                    "end": 1,
+                    "start": 2,
+                    "end": 3,
                 }
             ],
         }
@@ -159,6 +178,42 @@ class TestDraftPipeline(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
             self.assertIn("[auto]", text)
             self.assertIn("acme-widget-v2", text)
+
+    def test_one_off_chat_gets_no_draft(self) -> None:
+        extract = {
+            "user_messages": ["translate this paragraph about early human ancestors"],
+            "workspace_slug": "alpha-hub",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "alpha-hub.md"
+            path.write_text("# alpha-hub\n\n## Open threads\n\n", encoding="utf-8")
+            result = otd.draft_open_threads_after_apply(path, extract)
+            self.assertFalse(result["drafted"])
+            self.assertEqual(result["skip_reason"], "one_off_chat")
+
+    def test_new_auto_draft_replaces_older_auto(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "alpha-hub.md"
+            path.write_text(
+                "# alpha-hub\n\n## Open threads\n\n"
+                "- **[billing]** keep invoices in sync · _upd 2026-07-01_\n"
+                "- **[old-topic]** [auto] previous session direction · _upd 2026-07-02_\n",
+                encoding="utf-8",
+            )
+            extract = {
+                "date": "2026-07-12",
+                "user_messages": [
+                    "the gateway timeout is back on staging",
+                    "add gateway retries with backoff",
+                    "gateway retries still fail after the deploy",
+                ],
+                "workspace_slug": "alpha-hub",
+            }
+            self.assertTrue(otd.draft_open_threads_after_apply(path, extract)["drafted"])
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("[billing]", text)
+            self.assertNotIn("old-topic", text)
+            self.assertEqual(text.count("[auto]"), 1)
 
     def test_apply_extract_still_untouched(self) -> None:
         extract = {

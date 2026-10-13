@@ -14,7 +14,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from lib.defaults import HUB_RETENTION_DAYS
+from lib.defaults import (
+    AUTO_THREAD_DISPLAY_DAYS,
+    AUTO_THREADS_PER_PROJECT,
+    HUB_RETENTION_DAYS,
+)
 from lib.markdown_sections import (
     bullets as _bullets,
     last_updated_from_preamble,
@@ -32,6 +36,10 @@ class OpenThread:
     updated: str | None  # raw date string, or file fallback
     updated_dt: datetime | None
     age_days: int | None
+
+    @property
+    def is_auto(self) -> bool:
+        return self.text.lstrip().startswith("[auto]")
 
     def to_dict(self) -> dict:
         return {
@@ -82,6 +90,8 @@ def collect_open_threads(
     days: int = HUB_RETENTION_DAYS,
     now: datetime | None = None,
     priority_slug: str | None = None,
+    auto_days: int = AUTO_THREAD_DISPLAY_DAYS,
+    auto_per_project: int = AUTO_THREADS_PER_PROJECT,
 ) -> list[OpenThread]:
     """
     Union of active directions across the hub, newest first.
@@ -92,6 +102,9 @@ def collect_open_threads(
     - Keyed by ``(slug, label)`` — same label in two projects is two directions,
       never merged.
     - ``priority_slug`` (current workspace) sorts first as a hint, not a gate.
+    - ``[auto]`` drafts: newest ``auto_per_project`` per project, none older
+      than ``auto_days``. Older hubs still hold many; they stay on disk for
+      curation but stop crowding the pointer. ``0`` disables either cap.
     """
     now = now or datetime.now()
     collected: list[OpenThread] = []
@@ -120,4 +133,21 @@ def collect_open_threads(
         return (is_priority, -ts, t.slug, t.label)
 
     collected.sort(key=sort_key)
-    return collected
+    if auto_days <= 0 and auto_per_project <= 0:
+        return collected
+
+    out: list[OpenThread] = []
+    auto_seen: dict[str, int] = {}
+    # Newest first within a project, so the kept draft is the latest one.
+    for t in sorted(collected, key=lambda t: -(t.updated_dt.timestamp() if t.updated_dt else float("-inf"))):
+        if not t.is_auto:
+            continue
+        if auto_days > 0 and t.age_days is not None and t.age_days > auto_days:
+            continue
+        n = auto_seen.get(t.slug, 0)
+        if auto_per_project > 0 and n >= auto_per_project:
+            continue
+        auto_seen[t.slug] = n + 1
+        out.append(t)
+    keep = {id(t) for t in out}
+    return [t for t in collected if not t.is_auto or id(t) in keep]

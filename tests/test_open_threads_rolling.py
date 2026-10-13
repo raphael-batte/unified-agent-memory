@@ -58,6 +58,25 @@ class TestRollingOpenThreads(unittest.TestCase):
             got = collect_open_threads(hub, days=30, now=NOW, priority_slug="beta-app")
             self.assertEqual(got[0].slug, "beta-app")
 
+    def test_auto_drafts_capped_per_project_and_by_age(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            hub = Path(tmp)
+            _project(
+                hub,
+                "alpha-hub",
+                "- **[billing]** keep invoices in sync · _upd 2026-06-20_\n"
+                "- **[x]** [auto] newest draft · _upd 2026-07-11_\n"
+                "- **[y]** [auto] older draft · _upd 2026-07-08_",
+            )
+            _project(hub, "beta-app", "- **[z]** [auto] stale draft · _upd 2026-06-25_")
+            got = {(t.slug, t.label) for t in collect_open_threads(hub, days=30, now=NOW)}
+            # curated stays for the full window; one fresh draft per project
+            self.assertEqual(got, {("alpha-hub", "billing"), ("alpha-hub", "x")})
+            everything = collect_open_threads(
+                hub, days=30, now=NOW, auto_days=0, auto_per_project=0
+            )
+            self.assertEqual(len(everything), 4)
+
     def test_filter_evicts_older_than_30d(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             hub = Path(tmp)

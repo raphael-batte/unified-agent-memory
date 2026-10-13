@@ -189,6 +189,14 @@ LEARN_FUNCTION_WORDS = frozenset(
         "with",
         "you",
         "your",
+        "please",
+        "just",
+        "also",
+        "still",
+        "again",
+        "some",
+        "there",
+        "here",
         "\u0430",
         "\u0431\u0435\u0437",
         "\u0431\u044b",
@@ -275,6 +283,14 @@ LEARN_FUNCTION_WORDS = frozenset(
     }
 )
 LEARN_MIN_PHRASE_CHARS = 3
+
+# [auto] Open threads are machine drafts: keep at most one per project (the
+# latest session's direction) and stop showing it after two weeks. Curated
+# threads are how a project tracks several directions at once.
+AUTO_THREADS_PER_PROJECT = 1
+AUTO_THREAD_DISPLAY_DAYS = 14
+# A chat this short is a one-off question, not a direction to resume.
+AUTO_THREAD_MIN_USER_MESSAGES = 3
 
 DOMAIN_STOPWORDS = frozenset(
     {

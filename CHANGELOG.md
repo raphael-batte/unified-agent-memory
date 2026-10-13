@@ -6,6 +6,13 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.30.1] - 2026-10-13
+
+### Changed
+
+- `[auto]` Open threads: at most one per project (a new draft replaces the older one), none for chats under three user messages, and the pointer hides drafts older than 14 days; older hubs keep their drafts on disk for curation. On the reference hub this cut the pointer from 71 threads to 15 and brought curated threads back into the top five
+- `[auto]` labels come from the tail segment's most repeated content words (verbs, fillers, paths and usernames skipped) instead of its first words; a lone generic folder such as `work/archive` no longer becomes a label
+
 ## [0.30.0] - 2026-10-13
 
 ### Added
