@@ -118,6 +118,7 @@ Distill runs only when transcripts are new or changed (manifest + file mtime). F
 | `AGENT_MEMORY_FRAMEWORK` | Override plugin bundle path (advanced) |
 | `AGENT_MEMORY_ENV` | Force the environment (`cursor` / `claude`) |
 | `AGENT_MEMORY_CURSOR_PROJECTS` | Override Cursor transcript root |
+| `AGENT_MEMORY_MASK_IP` | `0` keeps public IPv4 addresses in chat distills (masked as `[ip]` by default; keep addresses in `context/infra.md`) |
 | `AGENT_MEMORY_CLAUDE_PROJECTS` | Override Claude transcript root |
 | `AGENT_MEMORY_BOUNDARY_LOG` | Boundary hook log path |
 | `AGENT_MEMORY_SESSION_START_LOG` | Session-start hook log path |
@@ -207,4 +208,4 @@ If you used symlink skills or global `~/.cursor/hooks.json` entries before the p
 
 Created by [raphael-batte](https://github.com/raphael-batte)
 
-**Version:** 0.31.0 — see [VERSIONING.md](VERSIONING.md)
+**Version:** 0.31.1 — see [VERSIONING.md](VERSIONING.md)

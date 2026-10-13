@@ -6,6 +6,12 @@ Data hub (`$MEMORY_HOME`) is **not** versioned with this file.
 
 ## [Unreleased]
 
+## [0.31.1] - 2026-10-13
+
+### Changed
+
+- chat distills mask public IPv4 addresses as `[ip]` (loopback, private and version-like strings are kept); addresses belong in `context/infra.md`, which is never distilled and is not flagged by hub scans. `AGENT_MEMORY_MASK_IP=0` turns masking off. Existing hub files are not rewritten
+
 ## [0.31.0] - 2026-10-13
 
 ### Added

@@ -6,7 +6,9 @@ Use scan_memory_hub(strict=True) for optional high-entropy detection.
 
 from __future__ import annotations
 
+import ipaddress
 import math
+import os
 import re
 from collections import Counter
 from pathlib import Path
@@ -144,6 +146,33 @@ SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
 
 REDACTED_PLACEHOLDER = "[REDACTED-SECRET]"
 
+# Public IPv4 addresses are not secrets, but a server address in a chat distill
+# outlives the server and travels with every search hit. Masked on the distill
+# path only: scan_file and verify-memory do not flag them, so context/infra.md
+# (the place for addresses) is untouched. AGENT_MEMORY_MASK_IP=0 turns it off.
+IP_PLACEHOLDER = "[ip]"
+_IPV4_RE = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.]*\d)")
+
+
+def mask_public_ips(text: str) -> tuple[str, int]:
+    """Replace public IPv4 addresses; keep loopback/private/version-like strings."""
+    if os.environ.get("AGENT_MEMORY_MASK_IP", "1") == "0":
+        return text, 0
+    count = 0
+
+    def repl(m: re.Match[str]) -> str:
+        nonlocal count
+        try:
+            addr = ipaddress.IPv4Address(m.group(0))
+        except ValueError:
+            return m.group(0)
+        if not addr.is_global:
+            return m.group(0)
+        count += 1
+        return IP_PLACEHOLDER
+
+    return _IPV4_RE.sub(repl, text), count
+
 _TERMINAL_MARKERS = (
     "Last login:",
     "xcode-select:",
@@ -231,6 +260,7 @@ def sanitize_message(text: str) -> tuple[str | None, int]:
     if should_drop_message(text):
         return None, 0
     redacted, n = redact_secrets(text)
+    redacted, _ips = mask_public_ips(redacted)
     if REDACTED_PLACEHOLDER in redacted and len(redacted.replace(REDACTED_PLACEHOLDER, "").strip()) < 20:
         return None, n
     return redacted, n
